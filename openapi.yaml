@@ -91,7 +91,7 @@ paths:
         404:
           $ref: "#/components/responses/404"
 
-  /{identityId}/sessions:
+  /{identityId}/credential-creation-options:
     parameters:
       - name: "identityId"
         required: true
@@ -99,7 +99,22 @@ paths:
         schema:
           type: "string"
     get:
-      description: "Get the sessions for the identity."
+      description: "Get the PublicKeyCredentialCreationOptions for associating a new passkey with the identity."
+      responses:
+        200:
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                $ref: "https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredentialCreationOptions"
+        401:
+          $ref: "#/components/responses/401"
+        404:
+          $ref: "#/components/responses/404"
+
+  /sessions:
+    get:
+      description: "Get all the sessions."
       responses:
         200:
           description: "Ok"
@@ -111,26 +126,19 @@ paths:
                   $ref: "/components/schemas/Session"
         401:
           $ref: "#/components/responses/401"
-        404:
-          $ref: "#/components/responses/404"
     post:
       description: ""
       # TODO
 
-  /{identityId}/sessions/{sessionId}:
+  /sessions/{sessionId}:
     parameters:
-      - name: "identityId"
-        required: true
-        in: "path"
-        schema:
-          type: "string"
       - name: "sessionId"
         required: true
         in: "path"
         schema:
           type: "string"
     get:
-      description: "Get the specified session for the identity."
+      description: "Get the specified session."
       responses:
         200:
           description: "Ok"
@@ -152,25 +160,17 @@ paths:
         404:
           $ref: "#/components/responses/404"
 
-  /{identityId}/public-keys:
-    parameters:
-      - name: "identityId"
-        required: true
-        in: "path"
-        schema:
-          type: "string"
+  /public-keys:
     get:
-      description: "Get the public keys associated with the identity."
+      description: "Get the public keys."
       responses:
         200:
           description: "Ok"
         401:
           $ref: "#/components/responses/401"
-        404:
-          $ref: "#/components/responses/404"
 
     post:
-      description: "Associate a new public key with the identity."
+      description: "Associate a new public key with an identity."
       requestBody:
         required: true
         content:
@@ -185,16 +185,9 @@ paths:
           $ref: "#/components/responses/400"
         401:
           $ref: "#/components/responses/401"
-        404:
-          $ref: "#/components/responses/404"
 
-  /{identityId}/public-keys/{publicKeyId}:
+  /public-keys/{publicKeyId}:
     parameters:
-      - name: "identityId"
-        required: true
-        in: "path"
-        schema:
-          type: "string"
       - name: "publicKeyId"
         required: true
         in: "path"
@@ -214,27 +207,6 @@ paths:
         404:
           $ref: "#/components/responses/404"
 
-  /{identityId}/public-keys/credential-creation-options:
-    parameters:
-      - name: "identityId"
-        required: true
-        in: "path"
-        schema:
-          type: "string"
-    get:
-      description: "Get the PublicKeyCredentialCreationOptions for associating a new passkey with the identity."
-      responses:
-        200:
-          description: "Ok"
-          content:
-            application/json:
-              schema:
-                $ref: "https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredentialCreationOptions"
-        401:
-          $ref: "#/components/responses/401"
-        404:
-          $ref: "#/components/responses/404"
-
 security:
   - apiKey: []
   - token: []
@@ -246,34 +218,39 @@ components:
       content:
         application/json:
           schema:
-            $ref: "/components/schemas/Problems"
+            $ref: "/components/schemas/ErrorResponse"
 
     401:
       description: "Unauthenticated"
       content:
         application/json:
           schema:
-            $ref: "/components/schemas/Problems"
+            $ref: "/components/schemas/ErrorResponse"
 
     404:
       description: "Not Found"
       content:
         application/json:
           schema:
-            $ref: "/components/schemas/Problems"
+            $ref: "/components/schemas/ErrorResponse"
 
     409:
       description: "Conflict"
       content:
         application/json:
           schema:
-            $ref: "/components/schemas/Problems"
+            $ref: "/components/schemas/ErrorResponse"
 
   schemas:
-    Problems:
-      type: "array"
-      items:
-        $ref: "/components/schemas/Problem"
+    ErrorResponse:
+      type: "object"
+      required:
+        - "problems"
+      properties:
+        problems:
+          type: "array"
+          items:
+            $ref: "/components/schemas/Problem"
 
     Problem:
       type: "object"
