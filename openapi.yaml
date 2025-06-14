@@ -1,0 +1,284 @@
+openapi: "3.1.1"
+
+info:
+  title: "Identity API"
+  description: "API for the my identity service."
+  version: "1.0.0"
+
+  license:
+    name: "Apache 2.0"
+    identifier: "Apache-2.0"
+
+  contact:
+    name: "Trent Shailer"
+
+servers:
+  - url: "https://api.trentshailer.com/v1/identity"
+
+paths:
+  /:
+    post:
+      description: "Provision a new identity."
+      security:
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - "username"
+              properties:
+                username:
+                  type: "string"
+      responses:
+        201:
+          description: "Created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Identity"
+        400:
+          $ref: "#/components/responses/400"
+        401:
+          $ref: "#/components/responses/401"
+        409:
+          $ref: "#/components/responses/409"
+
+    get:
+      description: "Get the identity for the current session."
+      responses:
+        200:
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Identity"
+        401:
+          $ref: "#/components/responses/401"
+        404:
+          $ref: "#/components/responses/404"
+
+  /{identityId}:
+    get:
+      description: "Get the specified identity."
+      responses:
+        200:
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Identity"
+        401:
+          $ref: "#/components/responses/401"
+        404:
+          $ref: "#/components/responses/404"
+
+    delete:
+      description: "Delete the specified identity."
+      responses:
+        204:
+          description: "No Content"
+        401:
+          $ref: "#/components/responses/401"
+        404:
+          $ref: "#/components/responses/404"
+
+  /{identityId}/sessions:
+    get:
+      description: "Get the sessions for the identity."
+      responses:
+        200:
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/Session"
+        401:
+          $ref: "#/components/responses/401"
+        404:
+          $ref: "#/components/responses/404"
+    post:
+      description: ""
+      # TODO
+
+  /{identityId}/sessions/{sessionId}:
+    get:
+      description: "Get the specified session for the identity."
+      responses:
+        200:
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        401:
+          $ref: "#/components/responses/401"
+        404:
+          $ref: "#/components/responses/404"
+    delete:
+      description: "Deletes the specified session."
+      responses:
+        204:
+          description: "No Content"
+        401:
+          $ref: "#/components/responses/401"
+        404:
+          $ref: "#/components/responses/404"
+
+  /{identityId}/public-keys:
+    get:
+      description: "Get the public keys associated with the identity."
+      responses:
+        200:
+          description: "Ok"
+        401:
+          $ref: "#/components/responses/401"
+        404:
+          $ref: "#/components/responses/404"
+
+    post:
+      description: "Associate a new public key with the identity."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredential"
+      responses:
+        201:
+          description: "Created"
+          # TODO
+        400:
+          $ref: "#/components/responses/400"
+        401:
+          $ref: "#/components/responses/401"
+        404:
+          $ref: "#/components/responses/404"
+
+  /{identityId}/public-keys/{publicKeyId}:
+    description: ""
+    get:
+      description: ""
+      # TODO
+    delete:
+      description: "Delete the public key."
+      responses:
+        204:
+          description: "No Content"
+        401:
+          $ref: "#/components/responses/401"
+        404:
+          $ref: "#/components/responses/404"
+
+  /{identityId}/public-keys/credential-creation-options:
+    get:
+      description: "Get the PublicKeyCredentialCreationOptions for associating a new passkey with the identity."
+      responses:
+        200:
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                $ref: "https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredentialCreationOptions"
+        401:
+          $ref: "#/components/responses/401"
+        404:
+          $ref: "#/components/responses/404"
+
+security:
+  - apiKey: []
+  - token: []
+
+components:
+  responses:
+    400:
+      description: "Invalid Request"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problems"
+
+    401:
+      description: "Unauthenticated"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problems"
+
+    404:
+      description: "Not Found"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problems"
+
+    409:
+      description: "Conflict"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problems"
+
+  schemas:
+    Problems:
+      type: "array"
+      items:
+        $ref: "#/components/schemas/Problem"
+
+    Problem:
+      type: "object"
+      required:
+        - "code"
+        - "title"
+      properties:
+        code:
+          description: "A kebab case string that identifies the problem type."
+          type: "string"
+        title:
+          description: "A short, human-readable summary of the problem, should directly map to the code."
+          type: "string"
+        detail:
+          description: "A human-readable explanation specific to this occurrence of the problem."
+          type: "string"
+        pointer:
+          description: "A JSON path that identifies the part of the request that was the cause of the problem."
+          type: "string"
+
+    Identity:
+      type: "object"
+      required:
+        - "id"
+        - "username"
+        - "displayName"
+      properties:
+        id:
+          type: "string"
+        username:
+          type: "string"
+        displayName:
+          type: "string"
+        expiry:
+          type: "string"
+          format: "rfc3339"
+        created:
+          type: "string"
+          format: "rfc3339"
+
+      Session:
+        type: "object"
+        # TODO
+
+  securitySchemes:
+    apiKey:
+      type: "apiKey"
+      name: "X-TS-API-Key"
+      in: "header"
+
+    token:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
