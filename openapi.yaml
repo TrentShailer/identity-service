@@ -112,6 +112,33 @@ paths:
         404:
           $ref: "#/components/responses/404"
 
+  /jwks:
+    get:
+      description: "Get the JWKS for verifying tokens."
+      responses:
+        200:
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "keys"
+                properties:
+                  keys:
+                    type: "array"
+                    items:
+                      schema:
+                        type: "object"
+                        required:
+                          - "kid"
+                          - "key"
+                        properties:
+                          kid:
+                            type: "string"
+                          key:
+                            type: "string"
+
   /sessions:
     get:
       description: "Get all the sessions."
@@ -121,9 +148,14 @@ paths:
           content:
             application/json:
               schema:
-                type: "array"
-                items:
-                  $ref: "/components/schemas/Session"
+                type: "object"
+                required:
+                  - sessions
+                properties:
+                  sessions:
+                    type: "array"
+                    items:
+                      $ref: "/components/schemas/Session"
         401:
           $ref: "#/components/responses/401"
     post:
