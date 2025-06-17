@@ -112,7 +112,7 @@ paths:
         404:
           $ref: "#/components/responses/404"
 
-  /jwks:
+  /.well-known/jwks.json:
     get:
       description: "Get the JWKS for verifying tokens."
       responses:
@@ -129,14 +129,24 @@ paths:
                     type: "array"
                     items:
                       schema:
+                        description: "https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-key-set-properties"
                         type: "object"
                         required:
+                          - "alg"
+                          - "kty"
+                          - "use"
+                          - "x5c"
                           - "kid"
-                          - "key"
                         properties:
-                          kid:
+                          alg:
                             type: "string"
-                          key:
+                          kty:
+                            type: "string"
+                          use:
+                            type: "string"
+                          x5c:
+                            type: "string"
+                          kid:
                             type: "string"
 
   /sessions:
