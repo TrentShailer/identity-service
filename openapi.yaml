@@ -133,16 +133,10 @@ paths:
                         type: "object"
                         required:
                           - "alg"
-                          - "kty"
-                          - "use"
                           - "x5c"
                           - "kid"
                         properties:
                           alg:
-                            type: "string"
-                          kty:
-                            type: "string"
-                          use:
                             type: "string"
                           x5c:
                             type: "string"
