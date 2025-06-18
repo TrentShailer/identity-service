@@ -14,6 +14,7 @@ axum = { version = "0.8", default-features = false, features = [
     "macros",
     "tokio",
 ] }
+reqwest = { version = "0.12", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
 
 bb8 = "0.9"
@@ -33,6 +34,8 @@ uuid = { version = "1", features = ["v4"] }
 
 # TODO
 api-helper = { path = "../api-helper" }
+
+jsonwebtoken = { version = "9.3", features = ["use_pem"] }
 
 [workspace.lints.rust]
 "deprecated_in_future" = "warn"

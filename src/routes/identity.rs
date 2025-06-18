@@ -1,31 +1,28 @@
-use api_helper::{ConnectionPool, ErrorResponse, Json, Problem, ReportUnexpected};
-use axum::{extract::State, http::StatusCode};
+use api_helper::{ErrorResponse, Json, Problem, ReportUnexpected, Token};
+use axum::{
+    extract::State,
+    http::{HeaderMap, HeaderValue, StatusCode},
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{identity::Identity, sql};
+use crate::{ApiState, identity::Identity, sql};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PostIdentity {
     pub username: String,
 }
-
+#[axum::debug_handler]
 pub async fn post_identity(
-    State(pool): State<ConnectionPool>,
+    State(state): State<ApiState>,
     Json(body): Json<PostIdentity>,
-) -> Result<(StatusCode, Json<Identity>), ErrorResponse> {
+) -> Result<(StatusCode, HeaderMap, Json<Identity>), ErrorResponse> {
     let PostIdentity { username } = body;
 
     let mut problems: Vec<Problem> = vec![];
 
     // Validate username
     {
-        if username.is_empty() {
-            problems.push(Problem::invalid_field(
-                "The username must not be empty",
-                "$.username",
-            ));
-        }
         if username.chars().count() < 4 {
             problems.push(Problem::invalid_field(
                 "The username must be at least four characters.",
@@ -45,7 +42,7 @@ pub async fn post_identity(
 
     // Reject if username exists
     {
-        let connection = pool.get().await.unwrap();
+        let connection = state.pool.get().await.unwrap();
 
         let username_conflict = connection
             .query_opt(sql::identities::get_by_username()[0], &[&username])
@@ -71,19 +68,37 @@ pub async fn post_identity(
         let id = format!("ts-identity-{}", Uuid::new_v4());
         let display_name = format!("TS Identity {username}");
 
-        let connection = pool.get().await.unwrap();
+        let connection = state.pool.get().await.unwrap();
 
-        connection
+        let row = connection
             .query_one(
                 sql::identities::create()[0],
                 &[&id, &username, &display_name],
             )
             .await
             .report_error("creating identity")
-            .map_err(|_| ErrorResponse::server_error())?
+            .map_err(|_| ErrorResponse::server_error())?;
+
+        Identity::from_row(row).ok_or_else(ErrorResponse::server_error)?
     };
 
-    let identity = Identity::maybe_from_row(identity).ok_or_else(ErrorResponse::server_error)?;
+    // Create token
+    let token = Token {
+        identity_id: identity.id.clone(),
+    };
+    let token = state
+        .jwt_encoder
+        .encode(token)
+        .report_error("encoding token")
+        .map_err(|_| ErrorResponse::server_error())?;
 
-    Ok((StatusCode::CREATED, Json(identity)))
+    let mut headers = HeaderMap::new();
+    headers.append(
+        "Authorization",
+        HeaderValue::from_str(&format!("bearer {token}"))
+            .report_error("creating header value")
+            .map_err(|_| ErrorResponse::server_error())?,
+    );
+
+    Ok((StatusCode::CREATED, headers, Json(identity)))
 }

@@ -1,5 +1,4 @@
-use api_helper::ReportUnexpected;
-use jiff::Zoned;
+use api_helper::{ReportUnexpected, SqlTimestamp};
 use serde::{Deserialize, Serialize};
 use tokio_postgres::Row;
 
@@ -8,13 +7,13 @@ pub struct Identity {
     pub id: String,
     pub username: String,
     pub display_name: String,
-    pub expiry: Option<Zoned>,
-    pub created: Zoned,
+    pub expires: Option<SqlTimestamp>,
+    pub created: SqlTimestamp,
 }
 
 impl Identity {
     #[track_caller]
-    pub fn maybe_from_row(row: Row) -> Option<Self> {
+    pub fn from_row(row: Row) -> Option<Self> {
         let id: String = row.try_get("id").report_error("failed getting `id`").ok()?;
 
         let username: String = row
@@ -27,33 +26,21 @@ impl Identity {
             .report_error("failed getting `display_name`")
             .ok()?;
 
-        let expiry_string: Option<String> = row
-            .try_get("expiry")
-            .report_error("failed getting `expiry`")
+        let expires: Option<SqlTimestamp> = row
+            .try_get("expires")
+            .report_error("failed getting `expires`")
             .ok()?;
 
-        let created_string: String = row
+        let created: SqlTimestamp = row
             .try_get("created")
             .report_error("failed getting `created`")
-            .ok()?;
-
-        let expiry = expiry_string.and_then(|value| {
-            value
-                .parse::<Zoned>()
-                .report_error("failed parsing `expiry`")
-                .ok()
-        });
-
-        let created = created_string
-            .parse::<Zoned>()
-            .report_error("failed parsing `created`")
             .ok()?;
 
         Some(Self {
             id,
             username,
             display_name,
-            expiry,
+            expires,
             created,
         })
     }
