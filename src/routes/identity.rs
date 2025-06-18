@@ -1,6 +1,8 @@
-use api_helper::{ApiKey, ErrorResponse, Json, Problem, ReportUnexpected};
+use core::time::Duration;
+
+use api_helper::{ApiKey, ErrorResponse, Json, Jwt, Problem, ReportUnexpected};
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http::{HeaderMap, HeaderValue, StatusCode},
 };
 use serde::{Deserialize, Serialize};
@@ -12,7 +14,7 @@ use crate::{ApiState, identity::Identity, sql};
 pub struct PostIdentity {
     pub username: String,
 }
-#[axum::debug_handler]
+
 pub async fn post_identity(
     State(state): State<ApiState>,
     ApiKey(_): ApiKey,
@@ -69,7 +71,12 @@ pub async fn post_identity(
         let id = format!("ts-identity-{}", Uuid::new_v4());
         let display_name = format!("TS Identity {username}");
 
-        let connection = state.pool.get().await.unwrap();
+        let connection = state
+            .pool
+            .get()
+            .await
+            .report_error("get database connection")
+            .map_err(|_| ErrorResponse::server_error())?;
 
         let row = connection
             .query_one(
@@ -86,7 +93,7 @@ pub async fn post_identity(
     // Create token
     let token = state
         .jwt_encoder
-        .encode(identity.id.clone())
+        .encode(identity.id.clone(), Some(Duration::from_secs(60 * 60 * 4)))
         .report_error("encoding token")
         .map_err(|_| ErrorResponse::server_error())?;
 
@@ -99,4 +106,108 @@ pub async fn post_identity(
     );
 
     Ok((StatusCode::CREATED, headers, Json(identity)))
+}
+
+pub async fn get_identity(
+    State(state): State<ApiState>,
+    ApiKey(_): ApiKey,
+    Jwt(jwt): Jwt,
+) -> Result<(StatusCode, Json<Identity>), ErrorResponse> {
+    let connection = state
+        .pool
+        .get()
+        .await
+        .report_error("get database connection")
+        .map_err(|_| ErrorResponse::server_error())?;
+
+    let row = connection
+        .query_one(sql::identities::get_by_id()[0], &[&jwt.claims.sub])
+        .await
+        .map_err(|_| ErrorResponse::not_found())?;
+
+    let idenity = Identity::from_row(row).ok_or_else(ErrorResponse::server_error)?;
+
+    Ok((StatusCode::OK, Json(idenity)))
+}
+
+pub async fn get_identity_by_id(
+    State(state): State<ApiState>,
+    Path(id): Path<String>,
+    ApiKey(_): ApiKey,
+    Jwt(jwt): Jwt,
+) -> Result<(StatusCode, Json<Identity>), ErrorResponse> {
+    if id != jwt.claims.sub {
+        return Err(ErrorResponse::not_found());
+    }
+
+    let connection = state
+        .pool
+        .get()
+        .await
+        .report_error("get database connection")
+        .map_err(|_| ErrorResponse::server_error())?;
+
+    let row = connection
+        .query_one(sql::identities::get_by_id()[0], &[&id])
+        .await
+        .map_err(|_| ErrorResponse::not_found())?;
+
+    let idenity = Identity::from_row(row).ok_or_else(ErrorResponse::server_error)?;
+
+    Ok((StatusCode::OK, Json(idenity)))
+}
+
+pub async fn delete_identity_by_id(
+    State(state): State<ApiState>,
+    Path(id): Path<String>,
+    ApiKey(_): ApiKey,
+    Jwt(jwt): Jwt,
+) -> Result<StatusCode, ErrorResponse> {
+    if id != jwt.claims.sub {
+        return Err(ErrorResponse::not_found());
+    }
+
+    let connection = state
+        .pool
+        .get()
+        .await
+        .report_error("get database connection")
+        .map_err(|_| ErrorResponse::server_error())?;
+
+    connection
+        .execute(sql::identities::delete_by_id()[0], &[&id])
+        .await
+        .map_err(|_| ErrorResponse::server_error())?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CredentialCreationOptions {
+    pub attestation: String,
+    // TODO
+}
+pub async fn credential_creation_options(
+    State(state): State<ApiState>,
+    Path(id): Path<String>,
+    ApiKey(_): ApiKey,
+    Jwt(jwt): Jwt,
+) -> Result<(StatusCode, Json<CredentialCreationOptions>), ErrorResponse> {
+    if id != jwt.claims.sub {
+        return Err(ErrorResponse::not_found());
+    }
+
+    let connection = state
+        .pool
+        .get()
+        .await
+        .report_error("get database connection")
+        .map_err(|_| ErrorResponse::server_error())?;
+
+    connection
+        .execute(sql::identities::delete_by_id()[0], &[&id])
+        .await
+        .map_err(|_| ErrorResponse::server_error())?;
+
+    Ok((StatusCode::OK, todo!()))
 }

@@ -143,59 +143,6 @@ paths:
                           kid:
                             type: "string"
 
-  /sessions:
-    get:
-      description: "Get all the sessions."
-      responses:
-        200:
-          description: "Ok"
-          content:
-            application/json:
-              schema:
-                type: "object"
-                required:
-                  - sessions
-                properties:
-                  sessions:
-                    type: "array"
-                    items:
-                      $ref: "/components/schemas/Session"
-        401:
-          $ref: "#/components/responses/401"
-    post:
-      description: ""
-      # TODO
-
-  /sessions/{sessionId}:
-    parameters:
-      - name: "sessionId"
-        required: true
-        in: "path"
-        schema:
-          type: "string"
-    get:
-      description: "Get the specified session."
-      responses:
-        200:
-          description: "Ok"
-          content:
-            application/json:
-              schema:
-                $ref: "/components/schemas/Session"
-        401:
-          $ref: "#/components/responses/401"
-        404:
-          $ref: "#/components/responses/404"
-    delete:
-      description: "Deletes the specified session."
-      responses:
-        204:
-          description: "No Content"
-        401:
-          $ref: "#/components/responses/401"
-        404:
-          $ref: "#/components/responses/404"
-
   /public-keys:
     get:
       description: "Get the public keys."

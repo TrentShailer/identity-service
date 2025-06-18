@@ -1,3 +1,4 @@
+use core::time::Duration;
 use std::{
     env, fs,
     sync::{Arc, LazyLock},
@@ -7,7 +8,7 @@ use api_helper::{ApiKeyConfig, ApiKeyState, Jwks, JwksState, JwtEncoder, setup_c
 use axum::{
     Router,
     http::{HeaderMap, HeaderValue},
-    routing::post,
+    routing::{get, post},
 };
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
@@ -112,7 +113,7 @@ async fn main() {
             algorithm,
             kid,
             encoding_key,
-            expires_in_seconds: 60 * 24 * 30,
+            valid_for: Duration::from_secs(60 * 24 * 30),
             issuer: "identity-service".to_string(),
         }
     };
@@ -130,8 +131,21 @@ async fn main() {
         api_key_config,
     };
 
+    // TODO repeating task to remove expired identities
+
     let app = Router::new()
-        .route("/", post(routes::post_identity))
+        .route("/", post(routes::post_identity).get(routes::get_identity))
+        .route(
+            "/{identity_id}",
+            get(routes::get_identity_by_id).delete(routes::delete_identity_by_id),
+        )
+        .route(
+            "/{identity_id}/credential-creation-options",
+            get(routes::credential_creation_options),
+        )
+        // .route("/.well-known/jwks.json", get(todo!()))
+        // .route("/public-keys", get(todo!()).post(todo!()))
+        // .route("/public-keys/{public_key_id}", get(todo!()).delete(todo!()))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8081").await.unwrap();
