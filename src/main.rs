@@ -1,6 +1,9 @@
-use std::{env, fs, sync::Arc};
+use std::{
+    env, fs,
+    sync::{Arc, LazyLock},
+};
 
-use api_helper::{Jwks, JwksState, JwtEncoder, setup_connection_pool};
+use api_helper::{ApiKeyConfig, ApiKeyState, Jwks, JwksState, JwtEncoder, setup_connection_pool};
 use axum::{
     Router,
     http::{HeaderMap, HeaderValue},
@@ -26,11 +29,17 @@ pub struct ApiState {
     pub jwks: Arc<Mutex<Jwks>>,
     pub jwt_encoder: JwtEncoder,
     pub pool: Pool<PostgresConnectionManager<NoTls>>,
+    pub api_key_config: ApiKeyConfig,
 }
 
 impl JwksState for ApiState {
     fn jwks(&self) -> Arc<Mutex<Jwks>> {
         self.jwks.clone()
+    }
+}
+impl ApiKeyState for ApiState {
+    fn api_key_config(&self) -> &ApiKeyConfig {
+        &self.api_key_config
     }
 }
 
@@ -45,11 +54,11 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let config = Config::read().unwrap();
+    static CONFIG: LazyLock<Config> = std::sync::LazyLock::new(|| Config::read().unwrap());
 
     // Setup database
     let pool = {
-        let pool = setup_connection_pool(config.database_url).await.unwrap();
+        let pool = setup_connection_pool(&CONFIG.database_url).await.unwrap();
 
         // Migrate database
         let connection = pool.get().await.unwrap();
@@ -65,8 +74,8 @@ async fn main() {
     let jwks = {
         let mut headers = HeaderMap::new();
         headers.append(
-            "X-TS-API-Key",
-            HeaderValue::from_str(&config.api_key).unwrap(),
+            CONFIG.api_key_header.as_str(),
+            HeaderValue::from_str(&CONFIG.api_key).unwrap(),
         );
         let client = Client::builder().default_headers(headers).build().unwrap();
 
@@ -78,10 +87,10 @@ async fn main() {
 
     // Setup JWT encoder
     let jwt_encoder = {
-        let kid = config.jwk_kid.clone();
-        let algorithm = config.jwk_algorithm;
+        let kid = CONFIG.jwk_kid.clone();
+        let algorithm = CONFIG.jwk_algorithm;
 
-        let key_file = fs::read(config.jwk_path).unwrap();
+        let key_file = fs::read(&CONFIG.jwk_path).unwrap();
         let encoding_key = match algorithm {
             Algorithm::HS256 | Algorithm::HS384 | Algorithm::HS512 => {
                 EncodingKey::from_secret(&key_file)
@@ -103,13 +112,22 @@ async fn main() {
             algorithm,
             kid,
             encoding_key,
+            expires_in_seconds: 60 * 24 * 30,
+            issuer: "identity-service".to_string(),
         }
+    };
+
+    // Setup API key config
+    let api_key_config = ApiKeyConfig {
+        allowed_api_keys: CONFIG.allowed_api_keys.clone(),
+        header: CONFIG.api_key_header.clone(),
     };
 
     let state = ApiState {
         jwks,
         pool,
         jwt_encoder,
+        api_key_config,
     };
 
     let app = Router::new()

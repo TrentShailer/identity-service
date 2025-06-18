@@ -1,4 +1,4 @@
-use api_helper::{ErrorResponse, Json, Problem, ReportUnexpected, Token};
+use api_helper::{ApiKey, ErrorResponse, Json, Problem, ReportUnexpected};
 use axum::{
     extract::State,
     http::{HeaderMap, HeaderValue, StatusCode},
@@ -15,6 +15,7 @@ pub struct PostIdentity {
 #[axum::debug_handler]
 pub async fn post_identity(
     State(state): State<ApiState>,
+    ApiKey(_): ApiKey,
     Json(body): Json<PostIdentity>,
 ) -> Result<(StatusCode, HeaderMap, Json<Identity>), ErrorResponse> {
     let PostIdentity { username } = body;
@@ -83,12 +84,9 @@ pub async fn post_identity(
     };
 
     // Create token
-    let token = Token {
-        identity_id: identity.id.clone(),
-    };
     let token = state
         .jwt_encoder
-        .encode(token)
+        .encode(identity.id.clone())
         .report_error("encoding token")
         .map_err(|_| ErrorResponse::server_error())?;
 

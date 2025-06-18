@@ -20,5 +20,5 @@ openssl ec -in ec-private.pem -pubout -out ec-public.pem
 ## Making Requests
 
 ```
-xh POST http://localhost:8081 --json username=test
+xh POST http://localhost:8081 --json x-ts-api-key:identity-service username=test
 ```

@@ -11,15 +11,19 @@ pub struct Config {
     pub jwk_kid: String,
     pub jwk_algorithm: Algorithm,
     pub database_url: String,
+    pub allowed_api_keys: Vec<String>,
+    pub api_key_header: String,
 }
 impl Default for Config {
     fn default() -> Self {
         Self {
-            api_key: "api-key-here".to_string(),
+            api_key: "identity-service".to_string(),
             jwk_path: PathBuf::from("path/to/key.pem"),
             jwk_kid: "some-id-for-the-key".to_string(),
             jwk_algorithm: Algorithm::ES256,
             database_url: "postgres://user:password@localhost:5423".to_string(),
+            allowed_api_keys: vec!["identity-service".to_string()],
+            api_key_header: "X-TS-API-Key".to_string(),
         }
     }
 }
