@@ -1,4 +1,15 @@
-## Generating Keys
+# Identity Service
+
+API for handling identity and authentication for my web services.
+
+> [!CAUTION]
+>
+> ### This is a personal project
+>
+> Maintenance, bug fixes, new features, and support will only be provided when/if I feel like it.
+> Updates may violate semantic versioning.
+
+## Generating JWT Keys
 
 ```
 openssl ecparam -genkey -noout -name prime256v1 \
