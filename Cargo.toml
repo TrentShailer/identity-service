@@ -19,6 +19,7 @@ tokio = { version = "1", features = ["full"] }
 
 bb8 = "0.9"
 bb8-postgres = { version = "0.9" }
+postgres = "0.19"
 tokio-postgres = "0.7"
 
 serde = { version = "1", features = ["derive"] }
@@ -34,8 +35,10 @@ uuid = { version = "1", features = ["v4"] }
 
 # TODO
 api-helper = { path = "../api-helper" }
+sql-helper-lib = { path = "../sql-helper/crates/sql-helper-lib" }
 
 jsonwebtoken = { version = "9.3", features = ["use_pem"] }
+rand = "0.9"
 
 [workspace.lints.rust]
 "deprecated_in_future" = "warn"

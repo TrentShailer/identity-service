@@ -8,7 +8,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{ApiState, identity::Identity, sql};
+use crate::{ApiState, models::Identity, sql};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PostIdentity {
@@ -87,7 +87,7 @@ pub async fn post_identity(
             .report_error("creating identity")
             .map_err(|_| ErrorResponse::server_error())?;
 
-        Identity::from_row(row).ok_or_else(ErrorResponse::server_error)?
+        Identity::from_row(&row).ok_or_else(ErrorResponse::server_error)?
     };
 
     // Create token
@@ -125,7 +125,7 @@ pub async fn get_identity(
         .await
         .map_err(|_| ErrorResponse::not_found())?;
 
-    let idenity = Identity::from_row(row).ok_or_else(ErrorResponse::server_error)?;
+    let idenity = Identity::from_row(&row).ok_or_else(ErrorResponse::server_error)?;
 
     Ok((StatusCode::OK, Json(idenity)))
 }
@@ -152,7 +152,7 @@ pub async fn get_identity_by_id(
         .await
         .map_err(|_| ErrorResponse::not_found())?;
 
-    let idenity = Identity::from_row(row).ok_or_else(ErrorResponse::server_error)?;
+    let idenity = Identity::from_row(&row).ok_or_else(ErrorResponse::server_error)?;
 
     Ok((StatusCode::OK, Json(idenity)))
 }
@@ -180,34 +180,4 @@ pub async fn delete_identity_by_id(
         .map_err(|_| ErrorResponse::server_error())?;
 
     Ok(StatusCode::NO_CONTENT)
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CredentialCreationOptions {
-    pub attestation: String,
-    // TODO
-}
-pub async fn credential_creation_options(
-    State(state): State<ApiState>,
-    Path(id): Path<String>,
-    ApiKey(_): ApiKey,
-    Jwt(jwt): Jwt,
-) -> Result<(StatusCode, Json<CredentialCreationOptions>), ErrorResponse> {
-    if id != jwt.claims.sub {
-        return Err(ErrorResponse::not_found());
-    }
-
-    let connection = state
-        .pool
-        .get()
-        .await
-        .report_error("get database connection")
-        .map_err(|_| ErrorResponse::server_error())?;
-
-    connection
-        .execute(sql::identities::delete_by_id()[0], &[&id])
-        .await
-        .map_err(|_| ErrorResponse::server_error())?;
-
-    Ok((StatusCode::OK, todo!()))
 }
