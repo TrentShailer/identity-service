@@ -1,20 +1,18 @@
 --- create
 INSERT INTO
   public_keys (
-    id,
-    identity_id,
     raw_id,
+    identity_id,
     public_key,
     public_key_algorithm
   )
 VALUES
-  ($1, $2, $3, $4, $5);
+  ($1, $2, $3, $4);
 
 --- get_by_identity
 SELECT
-  id,
-  identity_id,
   raw_id,
+  identity_id,
   public_key,
   public_key_algorithm,
   created
