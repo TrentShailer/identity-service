@@ -7,7 +7,7 @@ use sql_helper_lib::SqlTimestamp;
 #[serde(rename_all = "camelCase")]
 pub struct Challenge {
     pub id: String,
-    pub identity_id: String,
+    pub identity_id: Option<Vec<u8>>,
     pub challenge: Vec<u8>,
     pub created: SqlTimestamp,
     pub expires: SqlTimestamp,
@@ -18,7 +18,7 @@ impl Challenge {
     pub fn from_row(row: &Row) -> Option<Self> {
         let id: String = row.try_get("id").report_error("failed getting `id`").ok()?;
 
-        let identity_id: String = row
+        let identity_id: Option<Vec<u8>> = row
             .try_get("identity_id")
             .report_error("failed getting `identity_id`")
             .ok()?;

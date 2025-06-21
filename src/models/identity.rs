@@ -6,7 +6,7 @@ use tokio_postgres::Row;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Identity {
-    pub id: String,
+    pub id: Vec<u8>,
     pub username: String,
     pub display_name: String,
     pub expires: Option<SqlTimestamp>,
@@ -16,7 +16,7 @@ pub struct Identity {
 impl Identity {
     #[track_caller]
     pub fn from_row(row: &Row) -> Option<Self> {
-        let id: String = row.try_get("id").report_error("failed getting `id`").ok()?;
+        let id: Vec<u8> = row.try_get("id").report_error("failed getting `id`").ok()?;
 
         let username: String = row
             .try_get("username")
