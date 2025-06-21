@@ -1,8 +1,10 @@
-use api_helper::{ReportUnexpected, SqlTimestamp};
+use api_helper::ReportUnexpected;
 use serde::{Deserialize, Serialize};
+use sql_helper_lib::SqlTimestamp;
 use tokio_postgres::Row;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Identity {
     pub id: String,
     pub username: String,
@@ -13,7 +15,7 @@ pub struct Identity {
 
 impl Identity {
     #[track_caller]
-    pub fn from_row(row: Row) -> Option<Self> {
+    pub fn from_row(row: &Row) -> Option<Self> {
         let id: String = row.try_get("id").report_error("failed getting `id`").ok()?;
 
         let username: String = row

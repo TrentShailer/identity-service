@@ -21,7 +21,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use crate::config::Config;
 
 mod config;
-mod identity;
+mod models;
 mod routes;
 mod sql;
 

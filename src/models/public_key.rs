@@ -1,0 +1,56 @@
+use api_helper::ReportUnexpected;
+use postgres::Row;
+use serde::{Deserialize, Serialize};
+use sql_helper_lib::SqlTimestamp;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicKey {
+    pub id: String,
+    pub identity_id: String,
+    pub raw_id: Vec<u8>,
+    pub public_key: Vec<u8>,
+    pub public_key_algorithm: i32,
+    pub created: SqlTimestamp,
+}
+
+impl PublicKey {
+    #[track_caller]
+    pub fn from_row(row: &Row) -> Option<Self> {
+        let id: String = row.try_get("id").report_error("failed getting `id`").ok()?;
+
+        let identity_id: String = row
+            .try_get("identity_id")
+            .report_error("failed getting `identity_id`")
+            .ok()?;
+
+        let raw_id: Vec<u8> = row
+            .try_get("raw_id")
+            .report_error("failed getting `raw_id`")
+            .ok()?;
+
+        let public_key: Vec<u8> = row
+            .try_get("public_key")
+            .report_error("failed getting `public_key`")
+            .ok()?;
+
+        let public_key_algorithm: i32 = row
+            .try_get("public_key_algorithm")
+            .report_error("failed getting `public_key_algorithm`")
+            .ok()?;
+
+        let created: SqlTimestamp = row
+            .try_get("created")
+            .report_error("failed getting `created`")
+            .ok()?;
+
+        Some(Self {
+            id,
+            identity_id,
+            raw_id,
+            public_key,
+            public_key_algorithm,
+            created,
+        })
+    }
+}
