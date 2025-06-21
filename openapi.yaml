@@ -132,15 +132,27 @@ paths:
                         description: "https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-key-set-properties"
                         type: "object"
                         required:
+                          - "kty"
                           - "alg"
-                          - "x5c"
+                          - "crv"
+                          - "x"
+                          - "y"
                           - "kid"
+                          - "use"
                         properties:
                           alg:
                             type: "string"
-                          x5c:
+                          crv:
+                            type: "string"
+                          x:
+                            type: "string"
+                          "y":
                             type: "string"
                           kid:
+                            type: "string"
+                          kty:
+                            type: "string"
+                          use:
                             type: "string"
 
   /public-keys:
@@ -159,7 +171,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredential"
+              type: "object"
+              required:
+              properties:
+                rawId:
+                  type: "array"
+                  items: "byte"
+              publicKey:
+                type: "array"
+                items: "byte"
+              publicKeyAlgorithm:
+                type: "int"
+              challengeResponse:
+                type: "array"
+                items: "byte"
       responses:
         201:
           description: "Created"

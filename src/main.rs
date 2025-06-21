@@ -12,7 +12,7 @@ use axum::{
 };
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
-use jsonwebtoken::{Algorithm, EncodingKey};
+use jsonwebtoken::{Algorithm, EncodingKey, jwk::JwkSet};
 use reqwest::Client;
 use tokio::sync::Mutex;
 use tokio_postgres::NoTls;
@@ -27,6 +27,7 @@ mod sql;
 
 #[derive(Clone)]
 pub struct ApiState {
+    pub jwks_file: JwkSet,
     pub jwks: Arc<Mutex<Jwks>>,
     pub jwt_encoder: JwtEncoder,
     pub pool: Pool<PostgresConnectionManager<NoTls>>,
@@ -81,7 +82,7 @@ async fn main() {
         let client = Client::builder().default_headers(headers).build().unwrap();
 
         Arc::new(Mutex::new(Jwks::new(
-            "localhost:8081/.well-known/jwks.json".to_string(),
+            "http://localhost:8081/.well-known/jwks.json".to_string(),
             client,
         )))
     };
@@ -124,11 +125,14 @@ async fn main() {
         header: CONFIG.api_key_header.clone(),
     };
 
+    let jwks_file = serde_json::from_slice(&fs::read(&CONFIG.jwks_path).unwrap()).unwrap();
+
     let state = ApiState {
         jwks,
         pool,
         jwt_encoder,
         api_key_config,
+        jwks_file,
     };
 
     // TODO repeating task to remove expired identities
@@ -143,7 +147,7 @@ async fn main() {
             "/{identity_id}/credential-creation-options",
             get(routes::credential_creation_options),
         )
-        // .route("/.well-known/jwks.json", get(todo!()))
+        .route("/.well-known/jwks.json", get(routes::get_jwks))
         // .route("/public-keys", get(todo!()).post(todo!()))
         // .route("/public-keys/{public_key_id}", get(todo!()).delete(todo!()))
         .with_state(state);
