@@ -6,9 +6,8 @@ use sql_helper_lib::SqlTimestamp;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Challenge {
-    pub id: String,
-    pub identity_id: Option<Vec<u8>>,
-    pub challenge: Vec<u8>,
+    pub challenge: String,
+    pub identity_id: Option<String>,
     pub created: SqlTimestamp,
     pub expires: SqlTimestamp,
 }
@@ -16,16 +15,14 @@ pub struct Challenge {
 impl Challenge {
     #[track_caller]
     pub fn from_row(row: &Row) -> Option<Self> {
-        let id: String = row.try_get("id").report_error("failed getting `id`").ok()?;
-
-        let identity_id: Option<Vec<u8>> = row
-            .try_get("identity_id")
-            .report_error("failed getting `identity_id`")
-            .ok()?;
-
-        let challenge: Vec<u8> = row
+        let challenge: String = row
             .try_get("challenge")
             .report_error("failed getting `challenge`")
+            .ok()?;
+
+        let identity_id: Option<String> = row
+            .try_get("identity_id")
+            .report_error("failed getting `identity_id`")
             .ok()?;
 
         let created: SqlTimestamp = row
@@ -39,9 +36,8 @@ impl Challenge {
             .ok()?;
 
         Some(Self {
-            id,
-            identity_id,
             challenge,
+            identity_id,
             created,
             expires,
         })
