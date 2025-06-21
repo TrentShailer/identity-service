@@ -13,41 +13,41 @@ info:
     name: "Trent Shailer"
 
 servers:
-  - url: "https://api.trentshailer.com/v1/identity"
+  - url: "https://api.trentshailer.com/v1/identities"
 
 paths:
   /:
     post:
-      description: "Provision a new identity."
-      security:
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: "object"
-              required:
-                - "username"
-              properties:
-                username:
-                  type: "string"
-      responses:
-        201:
-          description: "Created"
+      post:
+        description: "Provision a new identity."
+        security:
+          - apiKey: []
+        requestBody:
+          required: true
           content:
             application/json:
               schema:
-                $ref: "/components/schemas/Identity"
-        400:
-          $ref: "#/components/responses/400"
-        401:
-          $ref: "#/components/responses/401"
-        409:
-          $ref: "#/components/responses/409"
-
+                type: "object"
+                required:
+                  - "username"
+                properties:
+                  username:
+                    type: "string"
+        responses:
+          201:
+            description: "Created"
+            content:
+              application/json:
+                schema:
+                  $ref: "/components/schemas/Identity"
+          400:
+            $ref: "#/components/responses/400"
+          401:
+            $ref: "#/components/responses/401"
+          409:
+            $ref: "#/components/responses/409"
     get:
-      description: "Get the identity for the current session."
+      description: "Get the identity for the currently authenticated user."
       responses:
         200:
           description: "Ok"
@@ -59,7 +59,6 @@ paths:
           $ref: "#/components/responses/401"
         404:
           $ref: "#/components/responses/404"
-
   /{identityId}:
     parameters:
       - name: "identityId"
@@ -80,7 +79,6 @@ paths:
           $ref: "#/components/responses/401"
         404:
           $ref: "#/components/responses/404"
-
     delete:
       description: "Delete the specified identity."
       responses:
@@ -91,129 +89,76 @@ paths:
         404:
           $ref: "#/components/responses/404"
 
-  /{identityId}/credential-creation-options:
-    parameters:
-      - name: "identityId"
-        required: true
-        in: "path"
-        schema:
-          type: "string"
-    get:
-      description: "Get the PublicKeyCredentialCreationOptions for associating a new passkey with the identity."
-      responses:
-        200:
-          description: "Ok"
-          content:
-            application/json:
-              schema:
-                $ref: "https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredentialCreationOptions"
-        401:
-          $ref: "#/components/responses/401"
-        404:
-          $ref: "#/components/responses/404"
-
   /.well-known/jwks.json:
     get:
       description: "Get the JWKS for verifying tokens."
+      security: []
       responses:
         200:
           description: "Ok"
           content:
             application/json:
               schema:
-                type: "object"
-                required:
-                  - "keys"
-                properties:
-                  keys:
-                    type: "array"
-                    items:
-                      schema:
-                        description: "https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-key-set-properties"
-                        type: "object"
-                        required:
-                          - "kty"
-                          - "alg"
-                          - "crv"
-                          - "x"
-                          - "y"
-                          - "kid"
-                          - "use"
-                        properties:
-                          alg:
-                            type: "string"
-                          crv:
-                            type: "string"
-                          x:
-                            type: "string"
-                          "y":
-                            type: "string"
-                          kid:
-                            type: "string"
-                          kty:
-                            type: "string"
-                          use:
-                            type: "string"
+                $ref: "/components/schemas/Jwks" # TODO
 
-  /public-keys:
+  /credential-creation-options:
     get:
-      description: "Get the public keys."
+      description: "Get the credential creation options for WebAuthN."
+      security: []
       responses:
         200:
           description: "Ok"
-        401:
-          $ref: "#/components/responses/401"
-
+          content:
+            application/json:
+              schema:
+                $ref: "/components/schemas/CredentialCreationOptions" # TODO
+  /credential-request-options:
+    get:
+      description: "Get the credential request options for WebAuthN."
+      security: []
+      responses:
+        200:
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                $ref: "/components/schemas/CredentialRequestOptions" # TODO
+  /challenges:
     post:
-      description: "Associate a new public key with an identity."
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: "object"
-              required:
-              properties:
-                rawId:
-                  type: "array"
-                  items: "byte"
-              publicKey:
-                type: "array"
-                items: "byte"
-              publicKeyAlgorithm:
-                type: "int"
-              challengeResponse:
-                type: "array"
-                items: "byte"
+      description: "Create a new challenge"
+      security:
+        - apiKey: []
       responses:
         201:
           description: "Created"
-          # TODO
+          content:
+            application/json:
+              schema:
+                $ref: "/components/schemas/Challenge" # TODO
         400:
           $ref: "#/components/responses/400"
         401:
           $ref: "#/components/responses/401"
 
+  /public-keys:
+    post:
+      description: "Upload a new public key for authentication." # TODO if this is the first public key, the identity should be made permanant and a new JWT should be issued.
+    get:
+      description: "Get the public keys used for authentication." # TODO
   /public-keys/{publicKeyId}:
     parameters:
       - name: "publicKeyId"
+        description: "The `rawId` of the public key."
         required: true
         in: "path"
         schema:
           type: "string"
-    description: ""
     get:
-      description: ""
-      # TODO
+      description: "Get the specified public key." # TODO
     delete:
-      description: "Delete the public key."
-      responses:
-        204:
-          description: "No Content"
-        401:
-          $ref: "#/components/responses/401"
-        404:
-          $ref: "#/components/responses/404"
+      description: "Delete the specified public key." # TODO
+    post:
+      description: "Create a new session for the specified public key." # TODO
 
 security:
   - apiKey: []
@@ -285,6 +230,7 @@ components:
         - "id"
         - "username"
         - "displayName"
+        - "created"
       properties:
         id:
           type: "string"
@@ -298,10 +244,6 @@ components:
         created:
           type: "string"
           format: "rfc3339"
-
-    Session:
-      type: "object"
-      # TODO
 
   securitySchemes:
     apiKey:
