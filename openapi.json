@@ -1,0 +1,820 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Identity API",
+    "description": "API for the my identity service.",
+    "version": "1.0.0",
+    "license": {
+      "name": "Apache 2.0",
+      "identifier": "Apache-2.0"
+    },
+    "contact": {
+      "name": "Trent Shailer"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.trentshailer.com/v1/identities"
+    }
+  ],
+  "paths": {
+    "/": {
+      "post": {
+        "description": "Provision a new identity.",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "username"
+                ],
+                "properties": {
+                  "username": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Identity"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          }
+        }
+      },
+      "get": {
+        "description": "Get the identity for the currently authenticated user.",
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Identity"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          }
+        }
+      }
+    },
+    "/{identityId}": {
+      "parameters": [
+        {
+          "name": "identityId",
+          "required": true,
+          "in": "path",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "description": "Get the specified identity.",
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Identity"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          }
+        }
+      },
+      "delete": {
+        "description": "Delete the specified identity.",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          }
+        }
+      }
+    },
+    "/.well-known/jwks.json": {
+      "get": {
+        "description": "Get the JWKS for verifying tokens.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Jwks"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/credential-creation-options": {
+      "get": {
+        "description": "Get the credential creation options for WebAuthN.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialCreationOptions"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/credential-request-options": {
+      "get": {
+        "description": "Get the credential request options for WebAuthN.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialRequestOptions"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/challenges": {
+      "post": {
+        "description": "Create a new challenge",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Challenge"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          }
+        }
+      }
+    },
+    "/public-keys": {
+      "post": {
+        "description": "Upload a new public key for authentication.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicKeyCredentialAttestation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicKey"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          }
+        }
+      },
+      "get": {
+        "description": "Get the public keys used for authentication.",
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicKey"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          }
+        }
+      }
+    },
+    "/public-keys/{publicKeyId}": {
+      "parameters": [
+        {
+          "name": "publicKeyId",
+          "description": "The `rawId` of the public key.",
+          "required": true,
+          "in": "path",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "description": "Get the specified public key.",
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicKey"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          }
+        }
+      },
+      "delete": {
+        "description": "Delete the specified public key.",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          }
+        }
+      },
+      "post": {
+        "description": "Create a new session for the specified public key.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicKeyCredentialAssertion"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    },
+    {
+      "token": []
+    }
+  ],
+  "components": {
+    "responses": {
+      "400": {
+        "description": "Invalid Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "401": {
+        "description": "Unauthenticated",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "404": {
+        "description": "Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "409": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "problems"
+        ],
+        "properties": {
+          "problems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "Problem": {
+        "type": "object",
+        "required": [
+          "code",
+          "title"
+        ],
+        "properties": {
+          "code": {
+            "description": "A kebab case string that identifies the problem type.",
+            "type": "string"
+          },
+          "title": {
+            "description": "A short, human-readable summary of the problem type.",
+            "type": "string"
+          },
+          "detail": {
+            "description": "A human-readable explanation specific to this occurrence of the problem.",
+            "type": "string"
+          },
+          "pointer": {
+            "description": "A JSON path that identifies the part of the request that was the cause of the problem.",
+            "type": "string"
+          }
+        }
+      },
+      "Identity": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "displayName",
+          "created"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "expiry": {
+            "type": "string",
+            "format": "rfc3339"
+          },
+          "created": {
+            "type": "string",
+            "format": "rfc3339"
+          }
+        }
+      },
+      "Jwks": {
+        "type": "object",
+        "required": [
+          "keys"
+        ],
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "kty",
+                "kid"
+              ],
+              "properties": {
+                "kid": {
+                  "type": "string"
+                },
+                "use": {
+                  "type": "string"
+                },
+                "kty": {
+                  "type": "string"
+                },
+                "alg": {
+                  "type": "string"
+                },
+                "crv": {
+                  "type": "string"
+                },
+                "x": {
+                  "type": "string"
+                },
+                "y": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "PublicKey": {
+        "type": "object",
+        "required": [
+          "rawId",
+          "indentityId",
+          "publicKey",
+          "publicKeyAlgorithm",
+          "created"
+        ],
+        "properties": {
+          "rawId": {
+            "type": "string"
+          },
+          "identityId": {
+            "type": "string"
+          },
+          "publicKey": {
+            "type": "string",
+            "format": "base64"
+          },
+          "publicKeyAlgorithm": {
+            "type": "integer"
+          },
+          "created": {
+            "type": "string",
+            "format": "rfc3339"
+          }
+        }
+      },
+      "Challenge": {
+        "type": "object",
+        "required": [
+          "challenge",
+          "created",
+          "expires"
+        ],
+        "properties": {
+          "challenge": {
+            "type": "string",
+            "format": "base64"
+          },
+          "created": {
+            "type": "string",
+            "format": "rfc3339"
+          },
+          "expires": {
+            "type": "string",
+            "format": "rfc3339"
+          },
+          "identityId": {
+            "type": "string"
+          }
+        }
+      },
+      "CredentialCreationOptions": {
+        "type": "object",
+        "required": [
+          "rp",
+          "pubKeyCredParams"
+        ],
+        "properties": {
+          "attestation": {
+            "type": "string"
+          },
+          "attesteationFormats": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "authenticatorSelection": {
+            "type": "object",
+            "properties": {
+              "authenticatorAttachment": {
+                "type": "string"
+              },
+              "requireResidentKey": {
+                "type": "boolean"
+              },
+              "residentKey": {
+                "type": "string"
+              },
+              "userVerification": {
+                "type": "string"
+              }
+            }
+          },
+          "excludeCredentials": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "type"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "base64"
+                },
+                "transports": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "type": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "extensions": {
+            "type": "object"
+          },
+          "pubKeyCredParams": {
+            "type": "object",
+            "required": [
+              "alg",
+              "type"
+            ],
+            "properties": {
+              "alg": {
+                "type": "integer"
+              },
+              "type": {
+                "type": "string"
+              }
+            }
+          },
+          "rp": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          },
+          "timeout": {
+            "type": "integer"
+          },
+          "hints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CredentialRequestOptions": {
+        "type": "object",
+        "properties": {
+          "allowCredentials": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "transports",
+                "type"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "base64"
+                },
+                "transports": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "type": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "extensions": {
+            "type": "object"
+          },
+          "hints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rpId": {
+            "type": "string"
+          },
+          "timeout": {
+            "type": "integer"
+          },
+          "userVerification": {
+            "type": "string"
+          }
+        }
+      },
+      "PublicKeyCredentialAttestation": {
+        "type": "object",
+        "required": [
+          "id",
+          "rawId",
+          "type",
+          "response"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "rawId": {
+            "type": "string",
+            "format": "base64"
+          },
+          "authenticatorAttachment": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "response": {
+            "type": "object",
+            "required": [
+              "attestationObject",
+              "clientDataJSON"
+            ],
+            "properties": {
+              "attestationObject": {
+                "type": "string",
+                "format": "base64"
+              },
+              "clientDataJSON": {
+                "type": "string",
+                "format": "base64"
+              }
+            }
+          }
+        }
+      },
+      "PublicKeyCredentialAssertion": {
+        "type": "object",
+        "required": [
+          "id",
+          "rawId",
+          "type",
+          "response"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "rawId": {
+            "type": "string",
+            "format": "base64"
+          },
+          "authenticatorAttachment": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "response": {
+            "type": "object",
+            "required": [
+              "authenticatorData",
+              "clientDataJSON",
+              "signature",
+              "userHandle"
+            ],
+            "properties": {
+              "authenticatorData": {
+                "type": "string",
+                "format": "base64"
+              },
+              "clientDataJSON": {
+                "type": "string",
+                "format": "base64"
+              },
+              "signature": {
+                "type": "string",
+                "format": "base64"
+              },
+              "userHandle": {
+                "type": "string",
+                "format": "base64"
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "apiKey": {
+        "type": "apiKey",
+        "name": "X-TS-API-Key",
+        "in": "header"
+      },
+      "token": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
