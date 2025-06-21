@@ -111,7 +111,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CredentialCreationOptions" # TODO
+                $ref: "#/components/schemas/CredentialCreationOptions"
   /credential-request-options:
     get:
       description: "Get the credential request options for WebAuthN."
@@ -122,7 +122,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CredentialRequestOptions" # TODO
+                $ref: "#/components/schemas/CredentialRequestOptions"
 
   /challenges:
     post:
@@ -425,6 +425,110 @@ components:
         expired:
           type: "string"
           format: "rfc3339"
+
+    CredentialCreationOptions:
+      type: "object"
+      required:
+        - "rp"
+        - "pubKeyCredParams"
+      properties:
+        attestation:
+          type: "string"
+        attesteationFormats:
+          type: "array"
+          items:
+            type: "string"
+        authenticatorSelection:
+          type: "object"
+          properties:
+            authenticatorAttachment:
+              type: "string"
+            requireResidentKey:
+              type: "bool"
+            residentKey:
+              type: "string"
+            userVerification:
+              type: "string"
+        excludeCredentials:
+          type: "array"
+          items:
+            type: "object"
+            required:
+              - "id"
+              - "type"
+            properties:
+              id:
+                type: "array"
+                items:
+                  type: "u8"
+              transports:
+                type: "array"
+                items:
+                  type: "string"
+              type:
+                type: "string"
+        extensions:
+          type: "object"
+        pubKeyCredParams:
+          type: "object"
+          required:
+            - "alg"
+            - "type"
+          properties:
+            alg:
+              type: "i32"
+            type:
+              type: "string"
+        rp:
+          type: "object"
+          required:
+            - "name"
+          properties:
+            id:
+              type: "string"
+            name:
+              type: "string"
+        timeout:
+          type: "u32"
+        hints:
+          type: "array"
+          items:
+            type: "string"
+
+    CredentialRequestOptions:
+      type: "object"
+      properties:
+        allowCredentials:
+          type: "array"
+          items:
+            type: "object"
+            required:
+              - "id"
+              - "transports"
+              - "type"
+            properties:
+              id:
+                type: "array"
+                items:
+                  type: "u8"
+              transports:
+                type: "array"
+                items:
+                  type: "string"
+              type:
+                type: "string"
+        extensions:
+          type: "object"
+        hints:
+          type: "array"
+          items:
+            type: "string"
+        rpId:
+          type: "string"
+        timeout:
+          type: "u32"
+        userVerification:
+          type: "string"
 
   securitySchemes:
     apiKey:
