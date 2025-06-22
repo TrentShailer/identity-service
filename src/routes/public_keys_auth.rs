@@ -25,13 +25,15 @@ pub struct PublicKeyCredentialAttestation {
     pub r#type: String,
     pub response: AttestationResponse,
     pub public_key: String,
+    pub display_name: String, // TODO api
 }
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AttestationResponse {
     pub attestation_object: Option<String>,
-    pub client_data_json: String,  // TODO JSON
-    pub transports: Vec<String>,   // TODO schema
-    pub public_key_algorithm: i32, // TODO schema
+    #[serde(rename = "clientDataJSON")]
+    pub client_data_json: String,
+    pub transports: Vec<String>,
+    pub public_key_algorithm: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -121,9 +123,11 @@ pub async fn post_public_keys(
                 sql::public_key::CreateParams {
                     p1: &body.raw_id,
                     p2: &identity_id,
-                    p3: &body.public_key,
-                    p4: &body.response.public_key_algorithm,
-                    phantom_data: core::marker::PhantomData, // TODO transport?
+                    p3: &body.display_name,
+                    p4: &body.public_key,
+                    p5: &body.response.public_key_algorithm,
+                    p6: &body.response.transports,
+                    phantom_data: core::marker::PhantomData,
                 }
                 .params()
                 .as_slice(),

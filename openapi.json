@@ -363,6 +363,50 @@
           }
         }
       }
+    },
+    "/public-keys/{publicKeyId}/displayName": {
+      "put": {
+        "description": "Update the public key's display name",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "displayName"
+                ],
+                "properties": {
+                  "displayName": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicKey"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          }
+        }
+      }
     }
   },
   "security": [
@@ -518,8 +562,10 @@
         "required": [
           "rawId",
           "indentityId",
+          "displayName",
           "publicKey",
           "publicKeyAlgorithm",
+          "transports",
           "created"
         ],
         "properties": {
@@ -529,6 +575,9 @@
           "identityId": {
             "type": "string"
           },
+          "displayName": {
+            "type": "string"
+          },
           "publicKey": {
             "type": "string",
             "format": "base64"
@@ -536,7 +585,17 @@
           "publicKeyAlgorithm": {
             "type": "integer"
           },
+          "transports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "created": {
+            "type": "string",
+            "format": "rfc3339"
+          },
+          "lastUsed": {
             "type": "string",
             "format": "rfc3339"
           }
@@ -745,7 +804,9 @@
           "response": {
             "type": "object",
             "required": [
-              "clientDataJSON"
+              "clientDataJSON",
+              "publicKeyAlgorithm",
+              "transports"
             ],
             "properties": {
               "attestationObject": {
@@ -755,6 +816,15 @@
               "clientDataJSON": {
                 "type": "string",
                 "format": "base64"
+              },
+              "publicKeyAlgorithm": {
+                "type": "integer"
+              },
+              "transports": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               }
             }
           }
