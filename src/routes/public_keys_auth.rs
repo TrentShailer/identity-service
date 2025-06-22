@@ -1,6 +1,6 @@
 use core::time::Duration;
 
-use api_helper::{ApiKey, ErrorResponse, Json, Jwt, Problem, ReportUnexpected};
+use api_helper::{ApiKey, ErrorResponse, InternalServerError, Json, Jwt, Problem};
 use axum::{
     extract::State,
     http::{HeaderMap, HeaderValue},
@@ -48,57 +48,37 @@ pub async fn post_public_keys(
     Json(body): Json<PublicKeyCredentialAttestation>,
 ) -> Result<(StatusCode, HeaderMap, Json<PublicKey>), ErrorResponse> {
     if body.r#type != "public-key" {
-        return Err(ErrorResponse::single(
-            StatusCode::BAD_REQUEST,
-            Problem::invalid_field(
-                "The relying party only accepts public key credentials.",
-                "$.type",
-            ),
-        ));
+        return Err(ErrorResponse::bad_request(vec![Problem::new(
+            "$.type",
+            "The relying party only accepts public key credentials.",
+        )]));
     }
 
     let client_data: ClientData = {
         let client_data_json_string = BASE64_STANDARD
             .decode(body.response.client_data_json)
-            .map_err(|_| {
-                ErrorResponse::single(
-                    StatusCode::UNPROCESSABLE_ENTITY,
-                    Problem::new(
-                        "unprocessable-entity",
-                        "The request contained data that could not be processed.",
-                    )
-                    .pointer("$.response.clientDataJSON"),
-                )
+            .map_err(|_| ErrorResponse {
+                status: StatusCode::UNPROCESSABLE_ENTITY,
+                problems: vec![Problem::pointer("$.response.clientDataJSON")],
             })?;
 
         serde_json::from_slice(&client_data_json_string).map_err(|_| {
-            ErrorResponse::single(
-                StatusCode::BAD_REQUEST,
-                Problem::invalid_field(
-                    "The request contained invalid client data.",
-                    "$.response.clientDataJSON.type",
-                ),
-            )
+            ErrorResponse::bad_request(vec![Problem::new(
+                "$.response.clientDataJSON.type",
+                "The request contained invalid client data.",
+            )])
         })?
     };
 
     if client_data.r#type != "webauthn.create" {
-        return Err(ErrorResponse::single(
-            StatusCode::BAD_REQUEST,
-            Problem::invalid_field(
-                "The WebAuthN response type is unsupported for this operation.",
-                "$.response.clientDataJSON.type",
-            ),
-        ));
+        return Err(ErrorResponse::bad_request(vec![Problem::new(
+            "$.response.clientDataJSON.type",
+            "The WebAuthN response type is unsupported for this operation.",
+        )]));
     }
 
     let challenge = {
-        let connection = state
-            .pool
-            .get()
-            .await
-            .report_error("get database connection")
-            .map_err(|_| ErrorResponse::server_error())?;
+        let connection = state.pool.get().await.internal_server_error()?;
 
         let row = connection
             .query_opt(
@@ -111,49 +91,29 @@ pub async fn post_public_keys(
                 .as_slice(),
             )
             .await
-            .report_error("get challenge")
-            .map_err(|_| ErrorResponse::server_error())?
-            .ok_or_else(|| {
-                ErrorResponse::single(
-                    StatusCode::NOT_FOUND,
-                    Problem::new("challenge-not-found", "The challenge could not be found.")
-                        .pointer("$.response.clientDataJSON.challenge"),
-                )
-            })?;
+            .internal_server_error()?
+            .ok_or_else(|| ErrorResponse::not_found(Some("$.response.clientDataJSON.challenge")))?;
 
-        Challenge::from_row(&row).ok_or_else(ErrorResponse::server_error)?
+        Challenge::from_row(&row).internal_server_error()?
     };
 
     if challenge.expires.0 < Timestamp::now() - Duration::from_secs(60) {
-        return Err(ErrorResponse::single(
-            StatusCode::NOT_FOUND,
-            Problem::new("challenge-not-found", "The challenge could not be found.")
-                .pointer("$.response.clientDataJSON.challenge"),
-        ));
+        return Err(ErrorResponse::not_found(Some(
+            "$.response.clientDataJSON.challenge",
+        )));
     }
 
-    let identity_id = challenge.identity_id.ok_or_else(|| {
-        ErrorResponse::single(
-            StatusCode::NOT_FOUND,
-            Problem::new("challenge-not-found", "The challenge could not be found.")
-                .pointer("$.response.clientDataJSON.challenge"),
-        )
-    })?;
+    let identity_id = challenge
+        .identity_id
+        .ok_or_else(|| ErrorResponse::not_found(Some("$.response.clientDataJSON.challenge")))?;
     if identity_id != jwt.claims.sub {
-        return Err(ErrorResponse::single(
-            StatusCode::NOT_FOUND,
-            Problem::new("challenge-not-found", "The challenge could not be found.")
-                .pointer("$.response.clientDataJSON.challenge"),
-        ));
+        return Err(ErrorResponse::not_found(Some(
+            "$.response.clientDataJSON.challenge",
+        )));
     }
 
     let public_key = {
-        let connection = state
-            .pool
-            .get()
-            .await
-            .report_error("get database connection")
-            .map_err(|_| ErrorResponse::server_error())?;
+        let connection = state.pool.get().await.internal_server_error()?;
 
         let row = connection
             .query_one(
@@ -169,19 +129,13 @@ pub async fn post_public_keys(
                 .as_slice(),
             )
             .await
-            .report_error("insert public key")
-            .map_err(|_| ErrorResponse::server_error())?;
+            .internal_server_error()?;
 
-        PublicKey::from_row(&row).ok_or_else(ErrorResponse::server_error)?
+        PublicKey::from_row(&row).internal_server_error()?
     };
 
     let is_first_key = {
-        let connection = state
-            .pool
-            .get()
-            .await
-            .report_error("get database connection")
-            .map_err(|_| ErrorResponse::server_error())?;
+        let connection = state.pool.get().await.internal_server_error()?;
 
         let row = connection
             .query(
@@ -194,8 +148,7 @@ pub async fn post_public_keys(
                 .as_slice(),
             )
             .await
-            .report_error("insert public key")
-            .map_err(|_| ErrorResponse::server_error())?;
+            .internal_server_error()?;
 
         row.len() == 1
     };
@@ -205,12 +158,7 @@ pub async fn post_public_keys(
     if is_first_key {
         // Flag identity as non-expiring
         {
-            let connection = state
-                .pool
-                .get()
-                .await
-                .report_error("get database connection")
-                .map_err(|_| ErrorResponse::server_error())?;
+            let connection = state.pool.get().await.internal_server_error()?;
 
             connection
                 .execute(
@@ -223,22 +171,18 @@ pub async fn post_public_keys(
                     .as_slice(),
                 )
                 .await
-                .report_error("flag permanant")
-                .map_err(|_| ErrorResponse::server_error())?;
+                .internal_server_error()?;
         }
 
         // Create token
         let token = state
             .jwt_encoder
             .encode(jwt.claims.sub.clone(), None)
-            .report_error("encoding token")
-            .map_err(|_| ErrorResponse::server_error())?;
+            .internal_server_error()?;
 
         headers.append(
             "Authorization",
-            HeaderValue::from_str(&format!("bearer {token}"))
-                .report_error("creating header value")
-                .map_err(|_| ErrorResponse::server_error())?,
+            HeaderValue::from_str(&format!("bearer {token}")).internal_server_error()?,
         );
     }
 

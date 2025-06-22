@@ -1,4 +1,4 @@
-use api_helper::ReportUnexpected;
+use api_helper::InternalServerError;
 use serde::{Deserialize, Serialize};
 use sql_helper_lib::SqlTimestamp;
 use tokio_postgres::Row;
@@ -16,26 +16,26 @@ pub struct Identity {
 impl Identity {
     #[track_caller]
     pub fn from_row(row: &Row) -> Option<Self> {
-        let id: String = row.try_get("id").report_error("failed getting `id`").ok()?;
+        let id: String = row.try_get("id").internal_server_error_context("id").ok()?;
 
         let username: String = row
             .try_get("username")
-            .report_error("failed getting `username`")
+            .internal_server_error_context("username")
             .ok()?;
 
         let display_name: String = row
             .try_get("display_name")
-            .report_error("failed getting `display_name`")
+            .internal_server_error_context("display_name")
             .ok()?;
 
         let expires: Option<SqlTimestamp> = row
             .try_get("expires")
-            .report_error("failed getting `expires`")
+            .internal_server_error_context("expires")
             .ok()?;
 
         let created: SqlTimestamp = row
             .try_get("created")
-            .report_error("failed getting `created`")
+            .internal_server_error_context("created")
             .ok()?;
 
         Some(Self {

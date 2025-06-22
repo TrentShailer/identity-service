@@ -1,4 +1,4 @@
-use api_helper::{ApiKey, ErrorResponse, Json, Jwt, ReportUnexpected};
+use api_helper::{ApiKey, ErrorResponse, InternalServerError, Json, Jwt};
 use axum::extract::State;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use rand::Rng;
@@ -27,10 +27,10 @@ pub async fn post_challenges(
                     if jwt.0.claims.sub == id {
                         Some(id)
                     } else {
-                        return Err(ErrorResponse::not_found());
+                        return Err(ErrorResponse::not_found(Some("$.identity_id")));
                     }
                 } else {
-                    return Err(ErrorResponse::unuathenticated());
+                    return Err(ErrorResponse::unauthenticated());
                 }
             } else {
                 None
@@ -46,12 +46,7 @@ pub async fn post_challenges(
         BASE64_STANDARD.encode(challenge)
     };
 
-    let connection = state
-        .pool
-        .get()
-        .await
-        .report_error("get database connection")
-        .map_err(|_| ErrorResponse::server_error())?;
+    let connection = state.pool.get().await.internal_server_error()?;
 
     let challenge = {
         let row = connection
@@ -66,11 +61,10 @@ pub async fn post_challenges(
                 .as_slice(),
             )
             .await
-            .fk_violation(ErrorResponse::unuathenticated)?
-            .report_error("insert challenge")
-            .map_err(|_| ErrorResponse::server_error())?;
+            .fk_violation(ErrorResponse::unauthenticated)?
+            .internal_server_error()?;
 
-        Challenge::from_row(&row).ok_or_else(ErrorResponse::server_error)?
+        Challenge::from_row(&row).internal_server_error()?
     };
 
     Ok((StatusCode::CREATED, Json(challenge)))

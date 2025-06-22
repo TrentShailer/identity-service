@@ -1,6 +1,6 @@
 use core::time::Duration;
 
-use api_helper::{ApiKey, ErrorResponse, Json, Problem, ReportUnexpected};
+use api_helper::{ApiKey, ErrorResponse, InternalServerError, Json, Problem};
 use axum::{
     extract::State,
     http::{HeaderMap, HeaderValue},
@@ -41,36 +41,36 @@ pub async fn post_identities(
         // Validate username
         {
             if username.chars().count() < 4 {
-                problems.push(Problem::invalid_field(
-                    "The username must be at least four characters.",
+                problems.push(Problem::new(
                     "$.username",
+                    "The username must be at least four characters.",
                 ));
             }
             if username.chars().count() > 64 {
-                problems.push(Problem::invalid_field(
-                    "The username must be at most 64 characters.",
+                problems.push(Problem::new(
                     "$.username",
+                    "The username must be at most 64 characters.",
                 ));
             }
         }
         // Validate display name
         {
             if display_name.chars().count() < 4 {
-                problems.push(Problem::invalid_field(
-                    "The display name must be at least four characters.",
+                problems.push(Problem::new(
                     "$.displayName",
+                    "The display name must be at least four characters.",
                 ));
             }
             if display_name.chars().count() > 64 {
-                problems.push(Problem::invalid_field(
-                    "The display name must be at most 64 characters.",
+                problems.push(Problem::new(
                     "$.displayName",
+                    "The display name must be at most 64 characters.",
                 ));
             }
         }
 
         if !problems.is_empty() {
-            return Err(ErrorResponse::new(StatusCode::BAD_REQUEST, problems));
+            return Err(ErrorResponse::bad_request(problems));
         }
     }
 
@@ -81,12 +81,7 @@ pub async fn post_identities(
         rand::rng().fill(&mut id[1..]);
         let id = BASE64_STANDARD.encode(id);
 
-        let connection = state
-            .pool
-            .get()
-            .await
-            .report_error("get database connection")
-            .map_err(|_| ErrorResponse::server_error())?;
+        let connection = state.pool.get().await.internal_server_error()?;
 
         let row = connection
             .query_one(
@@ -94,35 +89,28 @@ pub async fn post_identities(
                 &[&id, &username, &display_name],
             )
             .await
-            .unique_violation(|| {
-                ErrorResponse::single(
-                    StatusCode::CONFLICT,
-                    Problem::new(
-                        "username-confict",
-                        "An identity with this username already exists",
-                    )
-                    .pointer("$.username"),
-                )
+            .unique_violation(|| ErrorResponse {
+                status: StatusCode::CONFLICT,
+                problems: vec![Problem::new(
+                    "$.username",
+                    "An identity with this username already exists.",
+                )],
             })?
-            .report_error("creating identity")
-            .map_err(|_| ErrorResponse::server_error())?;
+            .internal_server_error()?;
 
-        Identity::from_row(&row).ok_or_else(ErrorResponse::server_error)?
+        Identity::from_row(&row).internal_server_error()?
     };
 
     // Create token
     let token = state
         .jwt_encoder
         .encode(identity.id.clone(), Some(Duration::from_secs(60 * 60 * 4)))
-        .report_error("encoding token")
-        .map_err(|_| ErrorResponse::server_error())?;
+        .internal_server_error()?;
 
     let mut headers = HeaderMap::new();
     headers.append(
         "Authorization",
-        HeaderValue::from_str(&format!("bearer {token}"))
-            .report_error("creating header value")
-            .map_err(|_| ErrorResponse::server_error())?,
+        HeaderValue::from_str(&format!("bearer {token}")).internal_server_error()?,
     );
 
     Ok((StatusCode::CREATED, headers, Json(identity)))
