@@ -150,6 +150,7 @@ async fn main() {
             "/credential-request-options",
             get(routes::get_credential_request_options),
         )
+        .route("/", post(routes::post_identities))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8081").await.unwrap();

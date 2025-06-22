@@ -33,10 +33,14 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "username"
+                  "username",
+                  "displayName"
                 ],
                 "properties": {
                   "username": {
+                    "type": "string"
+                  },
+                  "displayName": {
                     "type": "string"
                   }
                 }
