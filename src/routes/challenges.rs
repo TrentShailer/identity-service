@@ -1,5 +1,5 @@
 use api_helper::{ApiKey, ErrorResponse, Json, Jwt, ReportUnexpected};
-use axum::extract::State;
+use axum::{debug_handler, extract::State};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use rand::Rng;
 use reqwest::StatusCode;
@@ -18,18 +18,22 @@ pub async fn post_challenges(
     State(state): State<ApiState>,
     ApiKey(_): ApiKey,
     jwt: Option<Jwt>,
-    body: Json<PostChallengesBody>,
+    body: Option<Json<PostChallengesBody>>,
 ) -> Result<(StatusCode, Json<Challenge>), ErrorResponse> {
     let identity_id: Option<String> = {
-        if let Some(id) = body.0.identity_id {
-            if let Some(jwt) = jwt {
-                if jwt.0.claims.sub == id {
-                    Some(id)
+        if let Some(body) = body {
+            if let Some(id) = body.0.identity_id {
+                if let Some(jwt) = jwt {
+                    if jwt.0.claims.sub == id {
+                        Some(id)
+                    } else {
+                        return Err(ErrorResponse::not_found());
+                    }
                 } else {
-                    return Err(ErrorResponse::not_found());
+                    return Err(ErrorResponse::unuathenticated());
                 }
             } else {
-                return Err(ErrorResponse::unuathenticated());
+                None
             }
         } else {
             None
