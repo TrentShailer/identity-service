@@ -32,6 +32,7 @@ pub struct ApiState {
     pub jwt_encoder: JwtEncoder,
     pub pool: Pool<PostgresConnectionManager<NoTls>>,
     pub api_key_config: ApiKeyConfig,
+    pub rp_id: String,
 }
 
 impl JwksState for ApiState {
@@ -133,6 +134,7 @@ async fn main() {
         jwt_encoder,
         api_key_config,
         jwks_file,
+        rp_id: CONFIG.rp_id.clone(),
     };
 
     // TODO repeating task to remove expired identities
@@ -140,6 +142,14 @@ async fn main() {
     let app = Router::new()
         .route("/.well-known/jwks.json", get(routes::get_jwks))
         .route("/challenges", post(routes::post_challenges))
+        .route(
+            "/credential-creation-options",
+            get(routes::get_credential_creation_options),
+        )
+        .route(
+            "/credential-request-options",
+            get(routes::get_credential_request_options),
+        )
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8081").await.unwrap();

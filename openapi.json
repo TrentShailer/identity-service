@@ -585,7 +585,7 @@
           "attestation": {
             "type": "string"
           },
-          "attesteationFormats": {
+          "attestationFormats": {
             "type": "array",
             "items": {
               "type": "string"
@@ -637,17 +637,20 @@
             "type": "object"
           },
           "pubKeyCredParams": {
-            "type": "object",
-            "required": [
-              "alg",
-              "type"
-            ],
-            "properties": {
-              "alg": {
-                "type": "integer"
-              },
-              "type": {
-                "type": "string"
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "alg",
+                "type"
+              ],
+              "properties": {
+                "alg": {
+                  "type": "integer"
+                },
+                "type": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -750,7 +753,6 @@
           "response": {
             "type": "object",
             "required": [
-              "attestationObject",
               "clientDataJSON"
             ],
             "properties": {

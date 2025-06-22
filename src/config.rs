@@ -14,6 +14,7 @@ pub struct Config {
     pub database_url: String,
     pub allowed_api_keys: Vec<String>,
     pub api_key_header: String,
+    pub rp_id: String,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -26,6 +27,7 @@ impl Default for Config {
             allowed_api_keys: vec!["identity-service".to_string()],
             api_key_header: "X-TS-API-Key".to_string(),
             jwks_path: PathBuf::from("path/to/jwks.json"),
+            rp_id: "relying.party.url".to_string(),
         }
     }
 }
