@@ -99,9 +99,11 @@ pub mod identities {
     }
 }
 pub mod challenge {
-    #[doc = "# SQL\n```sql\nINSERT INTO\r\n  challenges (challenge, identity_id)\r\nVALUES\r\n  ($1, $2);\n```"]
+    #[doc = "# SQL\n```sql\nINSERT INTO\r\n  challenges (challenge, identity_id)\r\nVALUES\r\n  ($1, $2)\r\nRETURNING\r\n  challenge,\r\n  identity_id,\r\n  created,\r\n  expires;\n```"]
     pub fn create() -> [&'static str; 1usize] {
-        ["INSERT INTO\r\n  challenges (challenge, identity_id)\r\nVALUES\r\n  ($1, $2);"]
+        [
+            "INSERT INTO\r\n  challenges (challenge, identity_id)\r\nVALUES\r\n  ($1, $2)\r\nRETURNING\r\n  challenge,\r\n  identity_id,\r\n  created,\r\n  expires;",
+        ]
     }
     pub struct CreateParams<'a> {
         pub p1: &'a str,

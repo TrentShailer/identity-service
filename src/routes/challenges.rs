@@ -1,5 +1,5 @@
 use api_helper::{ApiKey, ErrorResponse, Json, Jwt, ReportUnexpected};
-use axum::{debug_handler, extract::State};
+use axum::extract::State;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use rand::Rng;
 use reqwest::StatusCode;
