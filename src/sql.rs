@@ -97,6 +97,19 @@ pub mod identities {
             [&self.p1]
         }
     }
+    #[doc = "# SQL\n```sql\nUPDATE\r\n  identities\r\nSET\r\n  expires = NULL\r\nWHERE\r\n  id = $1;\n```"]
+    pub fn flag_permanant() -> [&'static str; 1usize] {
+        ["UPDATE\r\n  identities\r\nSET\r\n  expires = NULL\r\nWHERE\r\n  id = $1;"]
+    }
+    pub struct FlagPermanantParams<'a> {
+        pub p1: &'a str,
+        pub phantom_data: core::marker::PhantomData<&'a ()>,
+    }
+    impl<'a> FlagPermanantParams<'a> {
+        pub fn params(&'a self) -> [&'a (dyn postgres::types::ToSql + Sync); 1usize] {
+            [&self.p1]
+        }
+    }
 }
 pub mod challenge {
     #[doc = "# SQL\n```sql\nINSERT INTO\r\n  challenges (challenge, identity_id)\r\nVALUES\r\n  ($1, $2)\r\nRETURNING\r\n  challenge,\r\n  identity_id,\r\n  created,\r\n  expires;\n```"]
@@ -113,6 +126,21 @@ pub mod challenge {
     impl<'a> CreateParams<'a> {
         pub fn params(&'a self) -> [&'a (dyn postgres::types::ToSql + Sync); 2usize] {
             [&self.p1, &self.p2]
+        }
+    }
+    #[doc = "# SQL\n```sql\nSELECT\r\n  challenge,\r\n  identity_id,\r\n  created,\r\n  expires\r\nFROM\r\n  challenges\r\nWHERE\r\n  challenge = $1;\n```"]
+    pub fn get() -> [&'static str; 1usize] {
+        [
+            "SELECT\r\n  challenge,\r\n  identity_id,\r\n  created,\r\n  expires\r\nFROM\r\n  challenges\r\nWHERE\r\n  challenge = $1;",
+        ]
+    }
+    pub struct GetParams<'a> {
+        pub p1: &'a str,
+        pub phantom_data: core::marker::PhantomData<&'a ()>,
+    }
+    impl<'a> GetParams<'a> {
+        pub fn params(&'a self) -> [&'a (dyn postgres::types::ToSql + Sync); 1usize] {
+            [&self.p1]
         }
     }
 }

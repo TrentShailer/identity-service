@@ -39,3 +39,11 @@ DELETE FROM
   identities
 WHERE
   id = $1;
+
+--- flag_permanant
+UPDATE
+  identities
+SET
+  expires = NULL
+WHERE
+  id = $1;

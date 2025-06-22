@@ -9,3 +9,14 @@ RETURNING
   identity_id,
   created,
   expires;
+
+--- get
+SELECT
+  challenge,
+  identity_id,
+  created,
+  expires
+FROM
+  challenges
+WHERE
+  challenge = $1;

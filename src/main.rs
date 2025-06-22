@@ -151,6 +151,7 @@ async fn main() {
             get(routes::get_credential_request_options),
         )
         .route("/", post(routes::post_identities))
+        .route("/public-keys", post(routes::post_public_keys))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8081").await.unwrap();
