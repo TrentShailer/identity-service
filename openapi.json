@@ -433,19 +433,7 @@
       },
       "Problem": {
         "type": "object",
-        "required": [
-          "code",
-          "title"
-        ],
         "properties": {
-          "code": {
-            "description": "A kebab case string that identifies the problem type.",
-            "type": "string"
-          },
-          "title": {
-            "description": "A short, human-readable summary of the problem type.",
-            "type": "string"
-          },
           "detail": {
             "description": "A human-readable explanation specific to this occurrence of the problem.",
             "type": "string"
