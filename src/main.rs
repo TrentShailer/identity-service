@@ -138,18 +138,8 @@ async fn main() {
     // TODO repeating task to remove expired identities
 
     let app = Router::new()
-        .route("/", post(routes::post_identity).get(routes::get_identity))
-        .route(
-            "/{identity_id}",
-            get(routes::get_identity_by_id).delete(routes::delete_identity_by_id),
-        )
-        .route(
-            "/{identity_id}/credential-creation-options",
-            get(routes::credential_creation_options),
-        )
         .route("/.well-known/jwks.json", get(routes::get_jwks))
-        // .route("/public-keys", get(todo!()).post(todo!()))
-        // .route("/public-keys/{public_key_id}", get(todo!()).delete(todo!()))
+        .route("/challenges", post(routes::post_challenges))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8081").await.unwrap();

@@ -1,5 +1,6 @@
 --- create
+-- opt $2
 INSERT INTO
-  challenges (id, identity_id, challenge)
+  challenges (challenge, identity_id)
 VALUES
-  ($1, $2, $3);
+  ($1, $2);

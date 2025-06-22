@@ -1,7 +1,11 @@
-mod identity;
+mod challenges;
+mod credential_options;
+mod identities;
 mod jwks;
-mod web_authn;
+mod public_keys;
 
-pub use identity::*;
+pub use challenges::*;
+pub use credential_options::*;
+pub use identities::*;
 pub use jwks::*;
-pub use web_authn::*;
+pub use public_keys::*;
