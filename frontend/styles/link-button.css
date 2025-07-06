@@ -1,0 +1,25 @@
+a.button {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  width: fit-content;
+  padding-left: 0.25rem;
+  padding-right: 0.5rem;
+  height: 2rem;
+  border-radius: 0.25rem;
+  color: var(--text);
+  user-select: none;
+}
+
+a.button:hover {
+  background: var(--surface1);
+}
+
+a.button:active {
+  background: var(--surface0);
+}
+
+a.button > svg {
+  margin-right: 0.5rem;
+  height: 1.5rem;
+}

@@ -1,0 +1,25 @@
+.alert {
+  background-color: rgba(var(--surface2-rgb), 0.2);
+  color: var(--text);
+  fill: var(--text);
+  stroke: var(--text);
+
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.alert > div {
+  display: flex;
+}
+
+.alert.error {
+  background-color: rgba(var(--red-rgb), 0.2);
+  fill: var(--red);
+  stroke: var(--red);
+}
+
+.alert svg {
+  height: 1.5rem;
+}

@@ -12,8 +12,17 @@
   <body>
     <main>
       <div class="container" style="width: min(32rem, 80vw); margin-top: 10%">
-        <h1>Add a passkey</h1>
-        <div class="alert-error collapse" aria-hidden="true" id="form.error">
+        <section style="display: flex; flex-direction: row; align-items: center; gap: 1rem">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+            <path
+              xmlns="http://www.w3.org/2000/svg"
+              d="M218.1 167.17c0 13 0 25.6 4.1 37.4-43.1 50.6-156.9 184.3-167.5 194.5a20.17 20.17 0 00-6.7 15c0 8.5 5.2 16.7 9.6 21.3 6.6 6.9 34.8 33 40 28 15.4-15 18.5-19 24.8-25.2 9.5-9.3-1-28.3 2.3-36s6.8-9.2 12.5-10.4 15.8 2.9 23.7 3c8.3.1 12.8-3.4 19-9.2 5-4.6 8.6-8.9 8.7-15.6.2-9-12.8-20.9-3.1-30.4s23.7 6.2 34 5 22.8-15.5 24.1-21.6-11.7-21.8-9.7-30.7c.7-3 6.8-10 11.4-11s25 6.9 29.6 5.9c5.6-1.2 12.1-7.1 17.4-10.4 15.5 6.7 29.6 9.4 47.7 9.4 68.5 0 124-53.4 124-119.2S408.5 48 340 48s-121.9 53.37-121.9 119.17zM400 144a32 32 0 11-32-32 32 32 0 0132 32z"
+            />
+          </svg>
+          <h1>Add a passkey</h1>
+        </section>
+        <!-- Form alert -->
+        <div class="alert error collapse" aria-hidden="true" id="form.error">
           <div>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
               <path
@@ -27,7 +36,9 @@
           </div>
         </div>
         <br />
+        <!-- Form -->
         <form id="addPasskey" name="addPasskey">
+          <!-- Display name -->
           <section aria-label="Passkey display name">
             <label for="displayName">
               <strong><span id="required">*</span></strong>
@@ -40,17 +51,13 @@
               required
               minlength="1"
               maxlength="64"
+              placeholder="Display Name"
             />
             <small class="hidden" aria-hidden="true" id="displayName.error">!</small>
           </section>
+          <!-- Submit -->
           <section aria-label="prompt for passkey creation">
             <button id="form.submit" type="submit">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-                <path
-                  xmlns="http://www.w3.org/2000/svg"
-                  d="M218.1 167.17c0 13 0 25.6 4.1 37.4-43.1 50.6-156.9 184.3-167.5 194.5a20.17 20.17 0 00-6.7 15c0 8.5 5.2 16.7 9.6 21.3 6.6 6.9 34.8 33 40 28 15.4-15 18.5-19 24.8-25.2 9.5-9.3-1-28.3 2.3-36s6.8-9.2 12.5-10.4 15.8 2.9 23.7 3c8.3.1 12.8-3.4 19-9.2 5-4.6 8.6-8.9 8.7-15.6.2-9-12.8-20.9-3.1-30.4s23.7 6.2 34 5 22.8-15.5 24.1-21.6-11.7-21.8-9.7-30.7c.7-3 6.8-10 11.4-11s25 6.9 29.6 5.9c5.6-1.2 12.1-7.1 17.4-10.4 15.5 6.7 29.6 9.4 47.7 9.4 68.5 0 124-53.4 124-119.2S408.5 48 340 48s-121.9 53.37-121.9 119.17zM400 144a32 32 0 11-32-32 32 32 0 0132 32z"
-                />
-              </svg>
               Register Passkey
             </button>
           </section>
@@ -59,7 +66,7 @@
     </main>
     <footer>
       <a
-        class="button subtle"
+        class="button"
         href="https://github.com/trentshailer"
         target="_blank"
         rel="noopener noreferrer"
@@ -73,6 +80,6 @@
         Made by Trent Shailer
       </a>
     </footer>
-    <script type="module" src="index.js"></script>
+    <script type="module" src="index.js"/></script>
   </body>
 </html>

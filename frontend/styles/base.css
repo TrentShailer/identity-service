@@ -1,0 +1,211 @@
+:root {
+  color-scheme: light dark;
+  font-size: 18px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --rosewater: #dc8a78;
+    --rosewater-rgb: 220, 138, 120;
+    --rosewater-hsl: 10.800 58.824% 66.667%;
+    --flamingo: #dd7878;
+    --flamingo-rgb: 221, 120, 120;
+    --flamingo-hsl: 0.000 59.763% 66.863%;
+    --pink: #ea76cb;
+    --pink-rgb: 234, 118, 203;
+    --pink-hsl: 316.034 73.418% 69.020%;
+    --mauve: #8839ef;
+    --mauve-rgb: 136, 57, 239;
+    --mauve-hsl: 266.044 85.047% 58.039%;
+    --red: #d20f39;
+    --red-rgb: 210, 15, 57;
+    --red-hsl: 347.077 86.667% 44.118%;
+    --maroon: #e64553;
+    --maroon-rgb: 230, 69, 83;
+    --maroon-hsl: 354.783 76.303% 58.627%;
+    --peach: #fe640b;
+    --peach-rgb: 254, 100, 11;
+    --peach-hsl: 21.975 99.184% 51.961%;
+    --yellow: #df8e1d;
+    --yellow-rgb: 223, 142, 29;
+    --yellow-hsl: 34.948 76.984% 49.412%;
+    --green: #40a02b;
+    --green-rgb: 64, 160, 43;
+    --green-hsl: 109.231 57.635% 39.804%;
+    --teal: #179299;
+    --teal-rgb: 23, 146, 153;
+    --teal-hsl: 183.231 73.864% 34.510%;
+    --sky: #04a5e5;
+    --sky-rgb: 4, 165, 229;
+    --sky-hsl: 197.067 96.567% 45.686%;
+    --sapphire: #209fb5;
+    --sapphire-rgb: 32, 159, 181;
+    --sapphire-hsl: 188.859 69.953% 41.765%;
+    --blue: #1e66f5;
+    --blue-rgb: 30, 102, 245;
+    --blue-hsl: 219.907 91.489% 53.922%;
+    --lavender: #7287fd;
+    --lavender-rgb: 114, 135, 253;
+    --lavender-hsl: 230.935 97.203% 71.961%;
+    --text: #4c4f69;
+    --text-rgb: 76, 79, 105;
+    --text-hsl: 233.793 16.022% 35.490%;
+    --subtext1: #5c5f77;
+    --subtext1-rgb: 92, 95, 119;
+    --subtext1-hsl: 233.333 12.796% 41.373%;
+    --subtext0: #6c6f85;
+    --subtext0-rgb: 108, 111, 133;
+    --subtext0-hsl: 232.800 10.373% 47.255%;
+    --overlay2: #7c7f93;
+    --overlay2-rgb: 124, 127, 147;
+    --overlay2-hsl: 232.174 9.623% 53.137%;
+    --overlay1: #8c8fa1;
+    --overlay1-rgb: 140, 143, 161;
+    --overlay1-hsl: 231.429 10.048% 59.020%;
+    --overlay0: #9ca0b0;
+    --overlay0-rgb: 156, 160, 176;
+    --overlay0-hsl: 228.000 11.236% 65.098%;
+    --surface2: #acb0be;
+    --surface2-rgb: 172, 176, 190;
+    --surface2-hsl: 226.667 12.162% 70.980%;
+    --surface1: #bcc0cc;
+    --surface1-rgb: 188, 192, 204;
+    --surface1-hsl: 225.000 13.559% 76.863%;
+    --surface0: #ccd0da;
+    --surface0-rgb: 204, 208, 218;
+    --surface0-hsl: 222.857 15.909% 82.745%;
+    --base: #eff1f5;
+    --base-rgb: 239, 241, 245;
+    --base-hsl: 220.000 23.077% 94.902%;
+    --mantle: #e6e9ef;
+    --mantle-rgb: 230, 233, 239;
+    --mantle-hsl: 220.000 21.951% 91.961%;
+    --crust: #dce0e8;
+    --crust-rgb: 220, 224, 232;
+    --crust-hsl: 220.000 20.690% 88.627%;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --rosewater: #f2d5cf;
+    --rosewater-rgb: 242, 213, 207;
+    --rosewater-hsl: 10.286 57.377% 88.039%;
+    --flamingo: #eebebe;
+    --flamingo-rgb: 238, 190, 190;
+    --flamingo-hsl: 0.000 58.537% 83.922%;
+    --pink: #f4b8e4;
+    --pink-rgb: 244, 184, 228;
+    --pink-hsl: 316.000 73.171% 83.922%;
+    --mauve: #ca9ee6;
+    --mauve-rgb: 202, 158, 230;
+    --mauve-hsl: 276.667 59.016% 76.078%;
+    --red: #e78284;
+    --red-rgb: 231, 130, 132;
+    --red-hsl: 358.812 67.785% 70.784%;
+    --maroon: #ea999c;
+    --maroon-rgb: 234, 153, 156;
+    --maroon-hsl: 357.778 65.854% 75.882%;
+    --peach: #ef9f76;
+    --peach-rgb: 239, 159, 118;
+    --peach-hsl: 20.331 79.085% 70.000%;
+    --yellow: #e5c890;
+    --yellow-rgb: 229, 200, 144;
+    --yellow-hsl: 39.529 62.044% 73.137%;
+    --green: #a6d189;
+    --green-rgb: 166, 209, 137;
+    --green-hsl: 95.833 43.902% 67.843%;
+    --teal: #81c8be;
+    --teal-rgb: 129, 200, 190;
+    --teal-hsl: 171.549 39.227% 64.510%;
+    --sky: #99d1db;
+    --sky-rgb: 153, 209, 219;
+    --sky-hsl: 189.091 47.826% 72.941%;
+    --sapphire: #85c1dc;
+    --sapphire-rgb: 133, 193, 220;
+    --sapphire-hsl: 198.621 55.414% 69.216%;
+    --blue: #8caaee;
+    --blue-rgb: 140, 170, 238;
+    --blue-hsl: 221.633 74.242% 74.118%;
+    --lavender: #babbf1;
+    --lavender-rgb: 186, 187, 241;
+    --lavender-hsl: 238.909 66.265% 83.725%;
+    --text: #c6d0f5;
+    --text-rgb: 198, 208, 245;
+    --text-hsl: 227.234 70.149% 86.863%;
+    --subtext1: #b5bfe2;
+    --subtext1-rgb: 181, 191, 226;
+    --subtext1-hsl: 226.667 43.689% 79.804%;
+    --subtext0: #a5adce;
+    --subtext0-rgb: 165, 173, 206;
+    --subtext0-hsl: 228.293 29.496% 72.745%;
+    --overlay2: #949cbb;
+    --overlay2-rgb: 148, 156, 187;
+    --overlay2-hsl: 227.692 22.286% 65.686%;
+    --overlay1: #838ba7;
+    --overlay1-rgb: 131, 139, 167;
+    --overlay1-hsl: 226.667 16.981% 58.431%;
+    --overlay0: #737994;
+    --overlay0-rgb: 115, 121, 148;
+    --overlay0-hsl: 229.091 13.360% 51.569%;
+    --surface2: #626880;
+    --surface2-rgb: 98, 104, 128;
+    --surface2-hsl: 228.000 13.274% 44.314%;
+    --surface1: #51576d;
+    --surface1-rgb: 81, 87, 109;
+    --surface1-hsl: 227.143 14.737% 37.255%;
+    --surface0: #414559;
+    --surface0-rgb: 65, 69, 89;
+    --surface0-hsl: 230.000 15.584% 30.196%;
+    --base: #303446;
+    --base-rgb: 48, 52, 70;
+    --base-hsl: 229.091 18.644% 23.137%;
+    --mantle: #292c3c;
+    --mantle-rgb: 41, 44, 60;
+    --mantle-hsl: 230.526 18.812% 19.804%;
+    --crust: #232634;
+    --crust-rgb: 35, 38, 52;
+    --crust-hsl: 229.412 19.540% 17.059%;
+  }
+}
+
+::selection {
+  background-color: rgba(var(--overlay2-rgb), 0.3);
+}
+::-moz-selection {
+  background-color: rgba(var(--overlay2-rgb), 0.3);
+}
+::-webkit-selection {
+  background-color: rgba(var(--overlay2-rgb), 0.3);
+}
+
+body {
+  background-color: var(--base);
+  color: var(--text);
+  fill: var(--text);
+  stroke: var(--text);
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-weight: 400;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.5;
+}
+
+main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: auto;
+}
+
+.hidden {
+  visibility: hidden !important;
+}
+
+.collapse {
+  display: none !important;
+}
