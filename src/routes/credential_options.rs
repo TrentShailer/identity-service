@@ -1,125 +1,204 @@
-use api_helper::Json;
-use axum::extract::State;
-use reqwest::StatusCode;
-use serde::Serialize;
+use axum::extract::{Query, State};
+use http::StatusCode;
+use serde::Deserialize;
+use ts_api_helper::{
+    ApiKey, DecodeBase64, ErrorResponse, InternalServerError, Json,
+    token::extractor::Token,
+    webauthn::{
+        persisted_public_key::PersistedPublicKey,
+        public_key_credential::{Hint, Type, UserVerification},
+        public_key_credential_creation_options::{
+            Attestation, AuthenticatorSelection, ExcludeCredentials, Extensions,
+            PublicKeyCredentialCreationOptions, PublicKeyParameters, ResidentKey, User,
+        },
+        public_key_credential_request_options::{
+            AllowCredentials, PublicKeyCredentialRequestOptions,
+        },
+    },
+};
+use ts_rust_helper::error::{ErrorLogger, IntoErrorReport};
+use ts_sql_helper_lib::FromRow;
 
-use crate::ApiState;
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CredentialCreationOptions {
-    pub attestation: Option<&'static str>,
-    pub attestation_formats: Option<Vec<&'static str>>,
-    pub authenticator_selection: Option<AuthenticatorSelection>,
-    pub exclude_credentials: Option<Vec<ExcludeCredential>>,
-    pub extensions: Option<()>,
-    pub pub_key_cred_params: Vec<PubKeyCredParams>,
-    pub rp: RelyingParty,
-    pub timeout: Option<i32>,
-    pub hints: Option<Vec<&'static str>>,
-}
-#[derive(Debug, Serialize)]
-pub struct AuthenticatorSelection {
-    pub authenticator_attachment: Option<&'static str>,
-    pub require_resident_key: Option<bool>,
-    pub resident_key: Option<&'static str>,
-    pub user_verification: Option<&'static str>,
-}
-#[derive(Debug, Serialize)]
-pub struct ExcludeCredential {
-    pub id: String,
-    pub transports: Option<Vec<String>>,
-    pub r#type: String,
-}
-#[derive(Debug, Serialize)]
-pub struct PubKeyCredParams {
-    pub alg: i32,
-    pub r#type: &'static str,
-}
-#[derive(Debug, Serialize)]
-pub struct RelyingParty {
-    pub id: Option<String>,
-    pub name: &'static str,
-}
+use crate::{ApiState, models::Identity, sql};
 
 pub async fn get_credential_creation_options(
+    _: ApiKey,
+    Token(token): Token,
     State(state): State<ApiState>,
-) -> (StatusCode, Json<CredentialCreationOptions>) {
-    let options = CredentialCreationOptions {
-        attestation: Some("none"), // TODO update schema?
-        attestation_formats: None,
-        authenticator_selection: Some(AuthenticatorSelection {
-            authenticator_attachment: None,
-            require_resident_key: Some(true),
-            resident_key: Some("required"),
-            user_verification: Some("preferred"),
-        }),
-        exclude_credentials: None,
-        extensions: None,
-        pub_key_cred_params: vec![
-            PubKeyCredParams {
-                alg: -7, // `ES256`
-                r#type: "public-key",
-            },
-            PubKeyCredParams {
-                alg: -8, // `EdDSA`
-                r#type: "public-key",
-            },
-            PubKeyCredParams {
-                alg: -19, // `Ed25519`
-                r#type: "public-key",
-            },
-            PubKeyCredParams {
-                alg: -35, // TODO `ES384`?
-                r#type: "public-key",
-            },
-            PubKeyCredParams {
-                alg: -36, // TODO `ES512`?
-                r#type: "public-key",
-            },
-            PubKeyCredParams {
-                alg: -257, // `RS256`
-                r#type: "public-key",
-            },
-        ],
-        rp: RelyingParty {
-            id: Some(state.rp_id),
-            name: "TS Auth",
-        },
-        timeout: Some(1000 * 60 * 15),
-        hints: Some(vec!["security-key", "hybrid", "client-device"]),
+) -> Result<(StatusCode, Json<PublicKeyCredentialCreationOptions>), ErrorResponse> {
+    let identity_id = token
+        .claims
+        .sub
+        .decode_base64()
+        .internal_server_error("decode token subject")?;
+
+    let identity = {
+        let connection = state
+            .pool
+            .get()
+            .await
+            .internal_server_error("get db connection")?;
+        let row = connection
+            .query_opt(
+                sql::identities::get_by_id()[0],
+                sql::identities::GetByIdParams {
+                    p1: &identity_id,
+                    phantom_data: core::marker::PhantomData,
+                }
+                .params()
+                .as_slice(),
+            )
+            .await
+            .internal_server_error("query identity by id")?;
+
+        match row {
+            Some(row) => {
+                Identity::from_row(&row).internal_server_error("convert row to identity")?
+            }
+            None => return Err(ErrorResponse::unauthenticated()),
+        }
     };
 
-    (StatusCode::OK, Json(options))
+    let exclude_credentials = {
+        let connection = state
+            .pool
+            .get()
+            .await
+            .internal_server_error("get db connection")?;
+        let rows = connection
+            .query(
+                sql::public_key::get_by_identity()[0],
+                sql::public_key::GetByIdentityParams {
+                    p1: &identity_id,
+                    phantom_data: core::marker::PhantomData,
+                }
+                .params()
+                .as_slice(),
+            )
+            .await
+            .internal_server_error("get public key by identity")?;
+
+        rows.into_iter()
+            .filter_map(|row| {
+                PersistedPublicKey::from_row(&row)
+                    .into_report("convert row to public key")
+                    .log_error()
+                    .ok()
+            })
+            .map(|key| ExcludeCredentials {
+                id: key.raw_id,
+                transports: Some(key.transports),
+                r#type: Type::PublicKey,
+            })
+            .collect::<Vec<_>>()
+    };
+
+    Ok((
+        StatusCode::OK,
+        Json(PublicKeyCredentialCreationOptions {
+            attestation: Some(Attestation::None),
+            attestation_formats: None,
+            authenticator_selection: Some(AuthenticatorSelection {
+                authenticator_attachment: None,
+                #[allow(deprecated)]
+                require_resident_key: Some(false),
+                resident_key: Some(ResidentKey::Preferred),
+                user_verification: Some(UserVerification::Required),
+            }),
+            challenge: None,
+            exclude_credentials: Some(exclude_credentials),
+            extensions: Some(Extensions {
+                return_credential_properties: Some(true),
+            }),
+            public_key_parameters: PublicKeyParameters::ALL.to_vec(),
+            relying_party: state.relying_party,
+            timeout: 1000 * 60 * 15,
+            user: User {
+                display_name: identity.display_name,
+                id: identity.id,
+                name: identity.username,
+            },
+            hints: Some(vec![Hint::SecurityKey, Hint::ClientDevice, Hint::Hybrid]),
+        }),
+    ))
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CredentialRequestOptions {
-    pub allow_credentials: Option<Vec<AllowCredential>>,
-    pub extensions: Option<()>,
-    pub hints: Option<Vec<&'static str>>,
-    pub rp_id: Option<String>,
-    pub timeout: Option<i32>,
-    pub user_verification: Option<&'static str>,
-}
-#[derive(Debug, Serialize)]
-pub struct AllowCredential {
-    pub id: String,
-    pub transports: Vec<String>,
-    pub r#type: String,
+#[derive(Deserialize)]
+pub struct RequestQuery {
+    pub username: Option<String>,
 }
 
 pub async fn get_credential_request_options(
+    _: ApiKey,
     State(state): State<ApiState>,
-) -> (StatusCode, Json<CredentialRequestOptions>) {
-    let options = CredentialRequestOptions {
-        allow_credentials: None,
-        extensions: None,
-        hints: Some(vec!["security-key", "hybrid", "client-device"]),
-        rp_id: Some(state.rp_id),
-        timeout: Some(1000 * 60 * 15),
-        user_verification: Some("preferred"),
+    query: Query<RequestQuery>,
+) -> Result<(StatusCode, Json<PublicKeyCredentialRequestOptions>), ErrorResponse> {
+    let allow_credentials = match &query.username {
+        Some(username) => {
+            let connection = state
+                .pool
+                .get()
+                .await
+                .internal_server_error("get db connection")?;
+
+            let identity_row = connection
+                .query_opt(
+                    sql::identities::get_by_username()[0],
+                    sql::identities::GetByUsernameParams {
+                        p1: username,
+                        phantom_data: core::marker::PhantomData,
+                    }
+                    .params()
+                    .as_slice(),
+                )
+                .await
+                .internal_server_error("query identity by username")?
+                .ok_or_else(|| ErrorResponse::not_found(Some("/username")))?;
+
+            let identity = Identity::from_row(&identity_row)
+                .internal_server_error("convert row to identity")?;
+
+            let allow_credentials = connection
+                .query(
+                    sql::public_key::get_by_identity()[0],
+                    sql::public_key::GetByIdentityParams {
+                        p1: &identity.id,
+                        phantom_data: core::marker::PhantomData,
+                    }
+                    .params()
+                    .as_slice(),
+                )
+                .await
+                .internal_server_error("query public key by identity")?
+                .into_iter()
+                .filter_map(|row| {
+                    PersistedPublicKey::from_row(&row)
+                        .into_report("convert row to public key")
+                        .log_error()
+                        .ok()
+                })
+                .map(|key| AllowCredentials {
+                    id: key.raw_id,
+                    transports: key.transports,
+                    r#type: Type::PublicKey,
+                })
+                .collect::<Vec<_>>();
+
+            Some(allow_credentials)
+        }
+        None => None,
     };
-    (StatusCode::OK, Json(options))
+
+    Ok((
+        StatusCode::OK,
+        Json(PublicKeyCredentialRequestOptions {
+            allow_credentials,
+            challenge: None,
+            extensions: None,
+            hints: Some(vec![Hint::SecurityKey, Hint::ClientDevice, Hint::Hybrid]),
+            relying_party_id: Some(state.relying_party.id),
+            timeout: 1000 * 60 * 15,
+            user_verification: Some(UserVerification::Required),
+        }),
+    ))
 }

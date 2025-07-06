@@ -1,142 +1,85 @@
-use core::{error::Error, fmt};
 use std::{fs, io, path::PathBuf};
 
-use jsonwebtoken::Algorithm;
+use schemars::{JsonSchema, generate::SchemaSettings};
 use serde::{Deserialize, Serialize};
+use ts_api_helper::{
+    ApiKeyValidationConfig, ConnectionPool, HttpClientConfig, SetupPostgresError,
+    setup_connection_pool,
+    token::config::{TokenIssuingConfig, TokenValidationConfig},
+    webauthn::public_key_credential_creation_options::RelyingParty,
+};
+use ts_rust_helper::config::ConfigFile;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct Config {
-    pub api_key: String,
-    pub jwk_path: PathBuf,
-    pub jwk_kid: String,
-    pub jwk_algorithm: Algorithm,
-    pub jwks_path: PathBuf,
-    pub database_url: String,
-    pub allowed_api_keys: Vec<String>,
-    pub api_key_header: String,
-    pub rp_id: String,
+    /// The URL to reach the database at.
+    /// This should be in the form `postgres://username:password@localhost:5432`
+    database_url: String,
+
+    /// The relying party for WebAuthN.
+    pub relying_party: RelyingParty,
+
+    /// The token issuing config.
+    pub token_issuing_config: TokenIssuingConfig,
+
+    /// The token validating config.
+    pub token_validating_config: TokenValidationConfig,
+
+    /// The API key validation config.
+    pub api_key_validation_config: ApiKeyValidationConfig,
+
+    /// The HTTP client config.
+    pub http_client_config: HttpClientConfig,
+
+    /// The CORS allowed origins.
+    pub allowed_origins: Vec<String>,
 }
+
 impl Default for Config {
     fn default() -> Self {
         Self {
-            api_key: "identity-service".to_string(),
-            jwk_path: PathBuf::from("path/to/key.pem"),
-            jwk_kid: "some-id-for-the-key".to_string(),
-            jwk_algorithm: Algorithm::ES256,
-            database_url: "postgres://user:password@localhost:5423".to_string(),
-            allowed_api_keys: vec!["identity-service".to_string()],
-            api_key_header: "X-TS-API-Key".to_string(),
-            jwks_path: PathBuf::from("path/to/jwks.json"),
-            rp_id: "relying.party.url".to_string(),
+            database_url: "postgres://username:password@localhost:5432".to_string(),
+            token_issuing_config: Default::default(),
+            token_validating_config: Default::default(),
+            api_key_validation_config: Default::default(),
+            http_client_config: Default::default(),
+            relying_party: RelyingParty {
+                id: "relying.party.id".to_string(),
+                name: "Identity Provider Name".to_string(),
+            },
+            allowed_origins: vec![
+                "http://localhost:5500".to_string(),
+                "http://127.0.0.1:5500".to_string(),
+            ],
         }
     }
 }
 
 impl Config {
-    pub fn read() -> Result<Self, ConfigReadError> {
-        let file = fs::read_to_string("config.json").map_err(|source| ConfigReadError {
-            kind: ConfigReadErrorKind::IoRead { source },
-        })?;
-
-        let config = serde_json::from_str(&file).map_err(|source| ConfigReadError {
-            kind: ConfigReadErrorKind::Deserialize { source },
-        })?;
-
-        Ok(config)
-    }
-
-    pub fn write_default() -> Result<(), ConfigWriteError> {
-        let contents =
-            serde_json::to_string_pretty(&Self::default()).map_err(|source| ConfigWriteError {
-                kind: ConfigWriteErrorKind::Serialize { source },
-            })?;
-
-        fs::write("config.json", contents).map_err(|source| ConfigWriteError {
-            kind: ConfigWriteErrorKind::IoWrite { source },
-        })
+    pub async fn database_pool(&self) -> Result<ConnectionPool, SetupPostgresError> {
+        setup_connection_pool(&self.database_url).await
     }
 }
 
-#[derive(Debug)]
-#[non_exhaustive]
-pub struct ConfigWriteError {
-    pub kind: ConfigWriteErrorKind,
-}
-impl fmt::Display for ConfigWriteError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "failed to write config file")
+impl ConfigFile for Config {
+    fn config_file_path() -> PathBuf {
+        PathBuf::from("./config.json")
     }
-}
-impl Error for ConfigWriteError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        Some(&self.kind)
-    }
-}
 
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum ConfigWriteErrorKind {
-    #[non_exhaustive]
-    IoWrite { source: io::Error },
+    fn schema() -> serde_json::Value {
+        let settings = SchemaSettings::draft07();
+        let generator = settings.into_generator();
+        let schema = generator.into_root_schema_for::<Self>();
+        serde_json::to_value(schema).unwrap()
+    }
 
-    #[non_exhaustive]
-    Serialize { source: serde_json::Error },
-}
-impl fmt::Display for ConfigWriteErrorKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self {
-            ConfigWriteErrorKind::IoWrite { .. } => write!(f, "io error when writing"),
-            ConfigWriteErrorKind::Serialize { .. } => write!(f, "serializing failed"),
-        }
+    fn delete(&self) -> io::Result<()> {
+        fs::remove_file(PathBuf::from("./config.json"))
     }
-}
-impl Error for ConfigWriteErrorKind {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match &self {
-            ConfigWriteErrorKind::IoWrite { source } => Some(source),
-            ConfigWriteErrorKind::Serialize { source } => Some(source),
-        }
-    }
-}
 
-#[derive(Debug)]
-#[non_exhaustive]
-pub struct ConfigReadError {
-    pub kind: ConfigReadErrorKind,
-}
-impl fmt::Display for ConfigReadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "failed to read config file")
-    }
-}
-impl Error for ConfigReadError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        Some(&self.kind)
-    }
-}
-
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum ConfigReadErrorKind {
-    #[non_exhaustive]
-    IoRead { source: io::Error },
-
-    #[non_exhaustive]
-    Deserialize { source: serde_json::Error },
-}
-impl fmt::Display for ConfigReadErrorKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self {
-            ConfigReadErrorKind::IoRead { .. } => write!(f, "io error when reading"),
-            ConfigReadErrorKind::Deserialize { .. } => write!(f, "deserializing failed"),
-        }
-    }
-}
-impl Error for ConfigReadErrorKind {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match &self {
-            ConfigReadErrorKind::IoRead { source } => Some(source),
-            ConfigReadErrorKind::Deserialize { source } => Some(source),
-        }
+    fn write(&self) -> io::Result<()> {
+        let json = serde_json::to_string_pretty(self).map_err(io::Error::other)?;
+        fs::write(PathBuf::from("./config.json"), &json)
     }
 }

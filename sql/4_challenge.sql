@@ -1,22 +1,24 @@
 --- create
 -- opt $2
 INSERT INTO
-  challenges (challenge, identity_id)
+  challenges (challenge, identity_id, origin)
 VALUES
-  ($1, $2)
+  ($1, $2, $3)
 RETURNING
   challenge,
   identity_id,
-  created,
+  origin,
+  issued,
   expires;
 
---- get
-SELECT
-  challenge,
-  identity_id,
-  created,
-  expires
-FROM
+--- take
+DELETE FROM
   challenges
 WHERE
-  challenge = $1;
+  challenge = $1
+RETURNING
+  challenge,
+  identity_id,
+  origin,
+  issued,
+  expires;

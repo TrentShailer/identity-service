@@ -6,10 +6,21 @@ INSERT INTO
     display_name,
     public_key,
     public_key_algorithm,
+    signature_counter,
     transports
   )
 VALUES
-  ($1, $2, $3, $4, $5, $6);
+  ($1, $2, $3, $4, $5, $6, $7)
+RETURNING
+  raw_id,
+  identity_id,
+  display_name,
+  public_key,
+  public_key_algorithm,
+  transports,
+  signature_counter,
+  created,
+  last_used;
 
 --- get_by_identity
 SELECT
@@ -19,6 +30,7 @@ SELECT
   public_key,
   public_key_algorithm,
   transports,
+  signature_counter,
   created,
   last_used
 FROM
@@ -34,18 +46,21 @@ SELECT
   public_key,
   public_key_algorithm,
   transports,
+  signature_counter,
   created,
   last_used
 FROM
   public_keys
 WHERE
-  raw_id = $1;
+  raw_id = $1
+  AND identity_id = $2;
 
 --- update_last_used
--- opt $1
 UPDATE
   public_keys
 SET
-  last_used = $1
+  last_used = $1,
+  signature_counter = $2
 WHERE
-  raw_id = $2;
+  raw_id = $3
+  AND identity_id = $4;
