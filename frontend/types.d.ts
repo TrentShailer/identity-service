@@ -10,8 +10,33 @@ type Challenge = {
   challenge: string;
   identityId: string | null;
   issued: string;
-  expires: string;
-  origin: string;
+  expires: string; // TODO
+  origin: string; // TODO
+};
+
+type PublicKey = {
+  rawId: string;
+  identityId: string;
+  displayName: string;
+  publicKey: string;
+  publicKeyAlgorithm: number;
+  transports: string[];
+  signatureCounter: number;
+  created: string; // TODO
+  lastUsed: string | null; // TODO
+};
+
+type ServerResponse<T> =
+  | { status: "ok"; body: T }
+  | { status: "clientError"; problems: Problem[] }
+  | {
+    status: "serverError";
+  }
+  | never;
+
+type Problem = {
+  pointer: string | null;
+  detail: string | null;
 };
 
 interface Uint8Array<TArrayBuffer extends ArrayBufferLike> {

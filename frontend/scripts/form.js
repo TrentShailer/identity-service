@@ -4,7 +4,7 @@
  * @param {string} formErrorId
  * @returns {Map<string, string>}
  */
-function formPreSend(
+function lockForm(
   inputIds,
   submitId,
   formErrorId,
@@ -126,7 +126,7 @@ function setFormError(formErrorId, error) {
  * @param {string[]} inputIds
  * @param {string} submitId
  */
-function renableForm(inputIds, submitId) {
+function unlockForm(inputIds, submitId) {
   const submitElement = document.getElementById(submitId);
   if (submitElement && submitElement instanceof HTMLButtonElement) {
     submitElement.disabled = false;
@@ -140,4 +140,4 @@ function renableForm(inputIds, submitId) {
   }
 }
 
-export { formPreSend, renableForm, setFormError, setFormInputErrors };
+export { lockForm, setFormError, setFormInputErrors, unlockForm };

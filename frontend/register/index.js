@@ -1,61 +1,46 @@
-import { formPreSend, renableForm, setFormError, setFormInputErrors } from "../scripts/form.js";
-import { API_KEY, API_KEY_HEADER, API_URL } from "../scripts/config.js";
+import { lockForm, setFormError, setFormInputErrors, unlockForm } from "../scripts/form.js";
+import { fetch } from "../scripts/fetch.js";
 
 const registerElement = document.getElementById("register");
 
 if (registerElement) {
+  // Listen for submits
   registerElement.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const values = formPreSend(["username", "displayName"], "form.submit", "form.error");
+    // Reset the form and get the values
+    const values = lockForm(["username", "displayName"], "form.submit", "form.error");
     const username = values.get("username");
     const displayName = values.get("displayName");
 
-    const body = JSON.stringify(
-      {
-        username,
-        displayName,
-      },
-    );
-
-    const headers = new Headers();
-    headers.append(API_KEY_HEADER, API_KEY);
-    headers.append("content-type", "application/json");
-
-    const response = await fetch(API_URL + "/identities", {
-      method: "POST",
-      body,
-      headers,
+    // Try create the identity
+    const response = await fetch("POST", "/identities", {
+      username,
+      displayName,
     });
 
-    if (response.status === 201) {
-      const token = response.headers.get("authorization");
-      if (!token) {
-        setFormError(
-          "form.error",
-          "Could not register because the server sent an invalid response.",
-        );
-        renableForm(["username", "displayName"], "form.submit");
-        return;
+    // If the identity was created and the server sent a token, move to next stage
+    if (response.status === "ok" && localStorage.getItem("token")) {
+      const params = new URLSearchParams(document.location.search);
+      const redirect = params.get("redirect");
+      let nextPage = "/add-passkey";
+      if (redirect) {
+        nextPage += `?redirect=${redirect}`;
       }
-
-      localStorage.setItem("token", token);
-      location.href = "/add-passkey";
-
-      // TODO preserve current redirect target
-    } else if (response.status === 409 || response.status === 400) {
-      const body = await response.json();
-      const pointerMap = new Map();
-      pointerMap.set("/username", "username");
-      pointerMap.set("/displayName", "displayName");
-      setFormInputErrors(pointerMap, "form.error", body.problems, "Could not register because");
-    } else {
+      location.href = nextPage;
+    } // Else if the server sent back client errors, set the form error fields accordingly.
+    else if (response.status === "clientError") {
+      const pointerMap = new Map([["/username", "username"], ["/displayName", "displayName"]]);
+      setFormInputErrors(pointerMap, "form.error", response.problems, "Could not register because");
+    } // Else set the form error
+    else {
       setFormError(
         "form.error",
         "Could not register because the server sent an unexpected response.",
       );
     }
 
-    renableForm(["username", "displayName"], "form.submit");
+    // Re-enable the form
+    unlockForm(["username", "displayName"], "form.submit");
   });
 }
