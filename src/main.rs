@@ -7,16 +7,12 @@ use axum::{
     Router,
     routing::{delete, get, post},
 };
-use http::{
-    HeaderName, Method,
-    header::{ACCEPT, AUTHORIZATION, CONTENT_ENCODING, CONTENT_TYPE},
-};
+use http::{HeaderName, Uri};
 use reqwest::Client;
-use tower_http::cors::{AllowOrigin, CorsLayer};
 use tracing::Level;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use ts_api_helper::{
-    ApiKeyValidationConfig, ConnectionPool, HasApiKeyValidationConfig, HasHttpClient,
+    ApiKeyValidationConfig, ConnectionPool, HasApiKeyValidationConfig, HasHttpClient, cors_layer,
     token::{
         JsonWebKeySetCache, SigningJsonWebKey,
         extractor::{HasKeySetCache, HasRevocationEndpoint},
@@ -30,7 +26,7 @@ use ts_api_helper::{
 use ts_rust_helper::{
     command::{Cli, Command},
     config::try_load_config,
-    error::{IntoErrorReport, ReportResult},
+    error::{IntoErrorReport, ReportProgramExit},
 };
 use ts_sql_helper_lib::FromRow;
 
@@ -215,7 +211,7 @@ impl VerifierError {
 }
 
 #[tokio::main]
-async fn main() -> ReportResult<'static, ()> {
+async fn main() -> ReportProgramExit {
     let cli = Cli::parse();
 
     let filter = tracing_subscriber::filter::LevelFilter::from_level(Level::INFO);
@@ -307,30 +303,21 @@ async fn main() -> ReportResult<'static, ()> {
     // TODO how are other services going to know when an identity has been deleted?
     // TODO ^ shared database? Event stream?
 
-    let origins = config
+    let origins: Vec<_> = config
         .allowed_origins
         .iter()
-        .map(|origin| origin.parse())
-        .collect::<Result<Vec<_>, _>>()?;
+        .map(Uri::try_from)
+        .collect::<Result<_, _>>()
+        .into_report("convert allowed origin to URI")?;
 
-    let cors = CorsLayer::new()
-        .allow_origin(AllowOrigin::list(origins))
-        .allow_credentials(true)
-        .allow_headers([
-            AUTHORIZATION,
-            ACCEPT,
-            CONTENT_TYPE,
-            HeaderName::from_str(&config.api_key_validation_config.header)?,
-        ])
-        .allow_methods([
-            Method::OPTIONS,
-            Method::HEAD,
-            Method::GET,
-            Method::PUT,
-            Method::POST,
-            Method::DELETE,
-        ])
-        .expose_headers([AUTHORIZATION, CONTENT_ENCODING, CONTENT_TYPE]);
+    let cors = cors_layer(
+        origins,
+        &[
+            HeaderName::from_str(&config.api_key_validation_config.header)
+                .into_report("convert API Key header into a HeaderName")?,
+        ],
+        &[],
+    );
 
     let app = Router::new()
         .route("/.well-known/jwks.json", get(routes::get_well_known_jwks))
@@ -357,5 +344,7 @@ async fn main() -> ReportResult<'static, ()> {
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8081").await.unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
 
-    axum::serve(listener, app).await.into_report("axum serve")
+    axum::serve(listener, app).await.into_report("axum serve")?;
+
+    Ok(())
 }

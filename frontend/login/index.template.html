@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <htmplate:metadata />
+    <meta name="description" content="Login — Trent Shailer">
+    <title>Login — Trent Shailer</title>
+  </head>
+  <body>
+    <header></header>
+    <main>
+      <div class="column">
+        <htmplate:title icon="finger-print" text="Login" />
+        <div>
+          <button id="prompt-resident-key" style="width: 100%">Prompt Resident Key</button>
+        </div>
+        <htmplate:hr text="or" />
+        <div>
+          <form id="/login" name="login">
+            <htmplate:form-alert form="/login" />
+            <htmplate:form-text-input
+              id="/username"
+              form="/login"
+              label="Username"
+              required="true"
+              credential="true"
+            />
+            <button id="/login/submit" type="submit">Prompt Associated Key</button>
+          </form>
+        </div>
+        <br>
+        <div>
+          <a href="/register">Don't have an account? Click here to register.</a>
+        </div>
+      </div>
+    </main>
+    <htmplate:footer />
+    <script type="module" src="index.js"></script>
+  </body>
+</html>

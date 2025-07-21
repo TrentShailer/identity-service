@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <htmplate:metadata />
+    <meta name="description" content="Add a Passkey — Trent Shailer">
+    <title>Add a Passkey — Trent Shailer</title>
+  </head>
+  <body>
+    <header></header>
+    <main>
+      <div class="column">
+        <htmplate:title icon="key" text="Add a Passkey" />
+        <!-- Form -->
+        <form id="/addPasskey" name="addPasskey">
+          <htmplate:form-alert form="/addPasskey" />
+          <htmplate:form-text-input
+            id="/displayName"
+            form="/addPasskey"
+            label="Display Name"
+            required="true"
+            credential="true"
+          />
+          <htmplate:form-submit form="/addPasskey" />
+        </form>
+      </div>
+    </main>
+    <htmplate:footer />
+    <script type="module" src="index.js"></script>
+  </body>
+</html>

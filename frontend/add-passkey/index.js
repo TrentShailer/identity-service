@@ -1,141 +1,115 @@
-import { base64Encode } from "../scripts/base64.js";
-import { fetch } from "../scripts/fetch.js";
-import { lockForm, setFormError, setFormInputErrors, unlockForm } from "../scripts/form.js";
-import { getCurrentToken } from "../scripts/identity.js";
+import { base64Encode } from "../lib/base64.js";
+import { FetchBuilder } from "../lib/fetch.js";
+import { Form } from "../lib/form.js";
+import { API_KEY, API_URL, LOGOUT_CONFIG } from "../scripts/config.js";
+import { setHref } from "../lib/redirect.js";
 
-// Send the user to login if they are not logged in.
-getCurrentToken();
+const form = new Form("/addPasskey", ["/displayName"]);
+form.form.addEventListener("submit", async (event) => {
+  event.preventDefault();
 
-const formElement = document.getElementById("addPasskey");
+  try {
+    form.lock();
+    form.clearErrors();
 
-if (formElement) {
-  // Listen for submits
-  formElement.addEventListener("submit", async (event) => {
-    event.preventDefault();
+    const values = form.getValues();
+    const displayName = values.get("/displayName") ?? "";
 
-    // Ensure the token is still valid and fetch identity ID.
-    const token = await getCurrentToken();
-
-    // Lock the form
-    const values = lockForm(["displayName"], "form.submit", "form.error");
-    const displayName = values.get("displayName") ?? "";
-
-    // Get the challenge
-    const challengeResponse = await getChallenge(token);
-    if (challengeResponse.status !== "ok") {
-      setFormError(
-        "form.error",
-        "Could not register a passkey because the server sent an unexpected response.",
-      );
-      unlockForm(["displayName"], "form.submit");
-      return;
+    // Get token details
+    /** @type import("../lib/fetch.js").ServerResponse<TokenDetails> */
+    const tokenResponse = await new FetchBuilder("GET", API_URL + "/tokens/current")
+      .setHeaders([API_KEY])
+      .setLogout(LOGOUT_CONFIG)
+      .fetch();
+    if (tokenResponse.status !== "ok") {
+      form.formError.unexpectedResponse("register a passkey");
+      throw "";
     }
+    const token = tokenResponse.body;
+
+    // Get a challenge
+    /** @type import("../lib/fetch.js").ServerResponse<Challenge> */
+    const challengeResponse = await new FetchBuilder("POST", API_URL + "/challenges")
+      .setLogout(LOGOUT_CONFIG)
+      .setHeaders([API_KEY])
+      .setBody({ identityId: token.sub })
+      .fetch();
+    if (challengeResponse.status !== "ok") {
+      form.formError.unexpectedResponse("register a passkey");
+      throw "";
+    }
+    const challenge = challengeResponse.body.challenge;
 
     // Get the credential creation options
-    const credentialCreationOptions = await getCredentialCreationOptions(
-      challengeResponse.body.challenge,
+    const credentialCreationOptionsResponse = await new FetchBuilder(
+      "GET",
+      API_URL + "/credential-creation-options",
+    ).setHeaders([API_KEY])
+      .setLogout(LOGOUT_CONFIG)
+      .fetch();
+    if (credentialCreationOptionsResponse.status !== "ok") {
+      form.formError.unexpectedResponse("register a passkey");
+      throw "";
+    }
+    credentialCreationOptionsResponse.body.challenge = challenge;
+    const credentialCreationOptions = PublicKeyCredential.parseCreationOptionsFromJSON(
+      credentialCreationOptionsResponse.body,
     );
-    if (!credentialCreationOptions) {
-      setFormError(
-        "form.error",
-        "Could not register a passkey because the server sent an unexpected response.",
-      );
-      unlockForm(["displayName"], "form.submit");
-      return;
-    }
 
+    // Get the credentials
     const credential = await navigator.credentials.create({ publicKey: credentialCreationOptions })
-      .catch(null);
-    if (!credential || !(credential instanceof PublicKeyCredential)) {
-      setFormError(
-        "form.error",
-        "Could not register a passkey because the prompt was cancelled.",
-      );
-      unlockForm(["displayName"], "form.submit");
-      return;
+      .catch(() => {
+        return null;
+      });
+    if (
+      !credential ||
+      !(credential instanceof PublicKeyCredential) ||
+      !(credential.response instanceof AuthenticatorAttestationResponse)
+    ) {
+      form.formError.setError("Could not register a passkey because the prompt was cancelled.");
+      throw "";
     }
 
-    const response = await uploadPublicKey(credential, displayName);
-    if (!response || response.status === "serverError") {
-      setFormError(
-        "form.error",
-        "Could not register the passkey because something went wrong.",
-      );
-      unlockForm(["displayName"], "form.submit");
-      return;
-    } else if (response.status === "clientError") {
-      const pointerMap = new Map([["/displayName", "displayName"]]);
-      setFormInputErrors(pointerMap, "form.error", response.problems, "Could not register because");
-      unlockForm(["displayName"], "form.submit");
-      return;
+    const authenticatorData = credential.response.getAuthenticatorData();
+    const publicKey = credential.response.getPublicKey();
+    const publicKeyAlgorithm = credential.response.getPublicKeyAlgorithm();
+    const transports = credential.response.getTransports();
+    if (!publicKey) {
+      form.formError.setError("Could not register the passkey because it wasn't created.");
+      throw "";
     }
 
-    const params = new URLSearchParams(document.location.search);
-    const redirect = params.get("redirect");
-    const nextPage = redirect ?? "/identity";
-    location.href = nextPage;
-  });
-}
+    const attestationResponse = {
+      attestationObject: base64Encode(new Uint8Array(credential.response.attestationObject)),
+      clientDataJSON: base64Encode(new Uint8Array(credential.response.clientDataJSON)),
+      authenticatorData: base64Encode(new Uint8Array(authenticatorData)),
+      publicKey: base64Encode(new Uint8Array(publicKey)),
+      publicKeyAlgorithm,
+      transports,
+    };
 
-/**
- * @param {TokenDetails} token
- * @returns {Promise<ServerResponse<Challenge>>}
- */
-function getChallenge(token) {
-  return fetch("POST", "/challenges", {
-    identityId: token.sub,
-  });
-}
-
-/**
- * @param {string} challenge
- * @returns {Promise<PublicKeyCredentialCreationOptions?>}
- */
-async function getCredentialCreationOptions(challenge) {
-  const response = await fetch("GET", "/credential-creation-options", null);
-  if (response.status !== "ok") {
-    return null;
+    const publicKeyResponse = await new FetchBuilder("POST", API_URL + "/public-keys").setLogout(
+      LOGOUT_CONFIG,
+    ).setHeaders([API_KEY]).setBody({
+      displayName,
+      credential: {
+        authenticatorAttachment: credential.authenticatorAttachment,
+        id: credential.id,
+        rawId: base64Encode(new Uint8Array(credential.rawId)),
+        response: attestationResponse,
+      },
+    }).fetch();
+    if (publicKeyResponse.status === "ok") {
+      const params = new URLSearchParams(document.location.search);
+      const redirect = params.get("redirect");
+      const nextPage = redirect ?? "identity";
+      await setHref(`/${nextPage}`); // TODO next page could be full https url
+    } else if (publicKeyResponse.status === "clientError") {
+      form.setInputErrors(publicKeyResponse.problems);
+    } else {
+      form.formError.unexpectedResponse("register the passkey");
+    }
+  } finally {
+    form.unlock();
   }
-
-  response.body.challenge = challenge;
-
-  return PublicKeyCredential.parseCreationOptionsFromJSON(response.body);
-}
-
-/**
- * @param {PublicKeyCredential} credential
- * @param {string} displayName
- * @returns {Promise<ServerResponse<PublicKey> | null>}
- */
-async function uploadPublicKey(credential, displayName) {
-  if (!(credential.response instanceof AuthenticatorAttestationResponse)) {
-    return null;
-  }
-
-  const authenticatorData = credential.response.getAuthenticatorData();
-  const publicKey = credential.response.getPublicKey();
-  const publicKeyAlgorithm = credential.response.getPublicKeyAlgorithm();
-  const transports = credential.response.getTransports();
-  if (!publicKey) {
-    return null;
-  }
-
-  const attestationResponse = {
-    attestationObject: base64Encode(new Uint8Array(credential.response.attestationObject)),
-    clientDataJSON: base64Encode(new Uint8Array(credential.response.clientDataJSON)),
-    authenticatorData: base64Encode(new Uint8Array(authenticatorData)),
-    publicKey: base64Encode(new Uint8Array(publicKey)),
-    publicKeyAlgorithm,
-    transports,
-  };
-
-  return await fetch("POST", "/public-keys", {
-    credential: {
-      authenticatorAttachment: credential.authenticatorAttachment,
-      id: credential.id,
-      rawId: base64Encode(new Uint8Array(credential.rawId)),
-      response: attestationResponse,
-    },
-    displayName,
-  });
-}
+});

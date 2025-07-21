@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <htmplate:metadata />
+    <meta name="description" content="Register — Trent Shailer">
+    <title>Register — Trent Shailer</title>
+  </head>
+  <body>
+    <header></header>
+    <main>
+      <div class="column">
+        <htmplate:title icon="person-add" text="Register" />
+        <!-- Form -->
+        <form id="/register" name="register">
+          <htmplate:form-alert form="/register" />
+          <htmplate:form-text-input
+            id="/username"
+            form="/register"
+            label="Username"
+            required="true"
+            credential="true"
+          />
+          <htmplate:form-text-input
+            id="/displayName"
+            form="/register"
+            label="Display Name"
+            required="true"
+            credential="true"
+          />
+          <htmplate:form-check-input
+            id="/residentKey"
+            form="/register"
+            label="Prefer resident key"
+          />
+          <htmplate:alert
+            status="info"
+            text="Resident keys allow you to login without providing your username, however physical
+              security keys have limited resident key slots."
+          />
+          <htmplate:form-submit form="/register" />
+        </form>
+        <br>
+        <a href="/login">Already have an account? Click here to login.</a>
+      </div>
+    </main>
+    <htmplate:footer />
+    <script type="module" src="index.js"></script>
+  </body>
+</html>

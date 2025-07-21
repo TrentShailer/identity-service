@@ -1,46 +1,38 @@
-import { lockForm, setFormError, setFormInputErrors, unlockForm } from "../scripts/form.js";
-import { fetch } from "../scripts/fetch.js";
+import { Form } from "../lib/form.js";
+import { FetchBuilder, TOKEN_KEY } from "../lib/fetch.js";
+import { API_KEY, API_URL, LOGOUT_CONFIG } from "../scripts/config.js";
+import { setHref } from "../lib/redirect.js";
 
-const registerElement = document.getElementById("register");
+// TODO if valid token, should redirect to ?redirect or /identity
 
-if (registerElement) {
-  // Listen for submits
-  registerElement.addEventListener("submit", async (event) => {
-    event.preventDefault();
+const form = new Form("/register", ["/username", "/displayName"]);
+form.form.addEventListener("submit", async (event) => {
+  event.preventDefault();
 
-    // Reset the form and get the values
-    const values = lockForm(["username", "displayName"], "form.submit", "form.error");
-    const username = values.get("username");
-    const displayName = values.get("displayName");
+  form.lock();
+  form.clearErrors();
 
-    // Try create the identity
-    const response = await fetch("POST", "/identities", {
-      username,
-      displayName,
-    });
+  const values = form.getValues();
+  const username = values.get("/username") ?? "";
+  const displayName = values.get("/displayName") ?? "";
 
-    // If the identity was created and the server sent a token, move to next stage
-    if (response.status === "ok" && localStorage.getItem("token")) {
-      const params = new URLSearchParams(document.location.search);
-      const redirect = params.get("redirect");
-      let nextPage = "/add-passkey";
-      if (redirect) {
-        nextPage += `?redirect=${redirect}`;
-      }
-      location.href = nextPage;
-    } // Else if the server sent back client errors, set the form error fields accordingly.
-    else if (response.status === "clientError") {
-      const pointerMap = new Map([["/username", "username"], ["/displayName", "displayName"]]);
-      setFormInputErrors(pointerMap, "form.error", response.problems, "Could not register because");
-    } // Else set the form error
-    else {
-      setFormError(
-        "form.error",
-        "Could not register because the server sent an unexpected response.",
-      );
+  /** @type import("../lib/fetch.js").ServerResponse<any> */
+  const response = await new FetchBuilder("POST", API_URL + "/identities").setHeaders([API_KEY])
+    .setBody({ username, displayName }).setLogout(LOGOUT_CONFIG).fetch();
+
+  if (response.status === "ok" && localStorage.getItem(TOKEN_KEY)) {
+    const params = new URLSearchParams(document.location.search);
+    const redirect = params.get("redirect");
+    let nextPage = "/add-passkey";
+    if (redirect) {
+      nextPage += `?redirect=${redirect}`;
     }
+    await setHref(nextPage);
+  } else if (response.status === "clientError") {
+    form.setInputErrors(response.problems);
+  } else {
+    form.formError.unexpectedResponse("register");
+  }
 
-    // Re-enable the form
-    unlockForm(["username", "displayName"], "form.submit");
-  });
-}
+  form.unlock();
+});
