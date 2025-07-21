@@ -1,4 +1,4 @@
-import { FetchBuilder, logout } from "../lib/fetch.js";
+import { FetchBuilder, logout, TOKEN_KEY } from "../lib/fetch.js";
 import { setHref } from "../lib/redirect.js";
 import { API_KEY, API_URL, LOGOUT_CONFIG } from "./config.js";
 
@@ -9,14 +9,23 @@ export async function requireTokenType(requiredType) {
   /** @type import("../lib/fetch.js").ServerResponse<TokenDetails> */
   const response = await new FetchBuilder("GET", API_URL + "/tokens/current").setHeaders([API_KEY])
     .fetch();
-  if (response.status !== "ok" && response.status !== "notFound") {
+
+  let token = null;
+
+  if (response.status === "serverError" || response.status === "clientError") {
     console.error(
       `recieved unexpected response from server when fetching current token: ${response.status}`,
     );
     return;
   }
 
-  const token = response.status === "ok" ? response.body : null;
+  if (response.status === "unauthorized") {
+    localStorage.removeItem(TOKEN_KEY);
+  }
+
+  if (response.status === "ok") {
+    token = response.body;
+  }
 
   switch (requiredType) {
     case "common":
