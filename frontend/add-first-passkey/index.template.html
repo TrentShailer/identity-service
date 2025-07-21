@@ -10,7 +10,6 @@
     <main>
       <div class="column">
         <htmplate:title icon="key" text="Add a Passkey" />
-        <!-- Form -->
         <form id="/addPasskey" name="addPasskey">
           <htmplate:form-alert form="/addPasskey" />
           <htmplate:form-text-input
@@ -19,6 +18,16 @@
             label="Display Name"
             required="true"
             credential="true"
+          />
+          <htmplate:form-check-input
+            id="/residentKey"
+            form="/register"
+            label="Prefer resident key"
+          />
+          <htmplate:alert
+            status="info"
+            text="Resident keys allow you to login without providing your username, however physical
+              security keys have limited resident key slots."
           />
           <htmplate:form-submit form="/addPasskey" />
         </form>

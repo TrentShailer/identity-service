@@ -134,7 +134,7 @@ pub async fn post_public_keys(
             .encode()
             .internal_server_error("encode claims")?;
 
-        let value = HeaderValue::from_str(&format!("{header}.{claims}.{signature}"))
+        let value = HeaderValue::from_str(&format!("bearer {header}.{claims}.{signature}"))
             .internal_server_error("convert token to header value")?;
 
         header_map.insert(AUTHORIZATION, value);

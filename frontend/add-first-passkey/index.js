@@ -3,6 +3,9 @@ import { FetchBuilder } from "../lib/fetch.js";
 import { Form } from "../lib/form.js";
 import { API_KEY, API_URL, LOGOUT_CONFIG } from "../scripts/config.js";
 import { setHref } from "../lib/redirect.js";
+import { requireTokenType } from "../scripts/pageRequirements.js";
+
+await requireTokenType("provisioning");
 
 const form = new Form("/addPasskey", ["/displayName"]);
 form.form.addEventListener("submit", async (event) => {
@@ -19,7 +22,7 @@ form.form.addEventListener("submit", async (event) => {
     /** @type import("../lib/fetch.js").ServerResponse<TokenDetails> */
     const tokenResponse = await new FetchBuilder("GET", API_URL + "/tokens/current")
       .setHeaders([API_KEY])
-      .setLogout(LOGOUT_CONFIG)
+      .setLogout(LOGOUT_CONFIG, false)
       .fetch();
     if (tokenResponse.status !== "ok") {
       form.formError.unexpectedResponse("register a passkey");
@@ -30,7 +33,7 @@ form.form.addEventListener("submit", async (event) => {
     // Get a challenge
     /** @type import("../lib/fetch.js").ServerResponse<Challenge> */
     const challengeResponse = await new FetchBuilder("POST", API_URL + "/challenges")
-      .setLogout(LOGOUT_CONFIG)
+      .setLogout(LOGOUT_CONFIG, false)
       .setHeaders([API_KEY])
       .setBody({ identityId: token.sub })
       .fetch();
@@ -45,7 +48,7 @@ form.form.addEventListener("submit", async (event) => {
       "GET",
       API_URL + "/credential-creation-options",
     ).setHeaders([API_KEY])
-      .setLogout(LOGOUT_CONFIG)
+      .setLogout(LOGOUT_CONFIG, false)
       .fetch();
     if (credentialCreationOptionsResponse.status !== "ok") {
       form.formError.unexpectedResponse("register a passkey");
@@ -90,6 +93,7 @@ form.form.addEventListener("submit", async (event) => {
 
     const publicKeyResponse = await new FetchBuilder("POST", API_URL + "/public-keys").setLogout(
       LOGOUT_CONFIG,
+      false,
     ).setHeaders([API_KEY]).setBody({
       displayName,
       credential: {
@@ -102,8 +106,8 @@ form.form.addEventListener("submit", async (event) => {
     if (publicKeyResponse.status === "ok") {
       const params = new URLSearchParams(document.location.search);
       const redirect = params.get("redirect");
-      const nextPage = redirect ?? "identity";
-      await setHref(`/${nextPage}`); // TODO next page could be full https url
+      const nextPage = redirect ? decodeURI(redirect) : "/identity";
+      await setHref(nextPage);
     } else if (publicKeyResponse.status === "clientError") {
       form.setInputErrors(publicKeyResponse.problems);
     } else {
