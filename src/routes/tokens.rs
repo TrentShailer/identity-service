@@ -55,8 +55,11 @@ pub struct TokenDetails {
 
 pub async fn get_current_token(
     _: ApiKey,
-    Token(token): Token,
+    token: Option<Token>,
 ) -> Result<(StatusCode, Json<TokenDetails>), ErrorResponse> {
+    let Some(Token(token)) = token else {
+        return Err(ErrorResponse::unauthenticated());
+    };
     let details = TokenDetails {
         sub: token.claims.sub,
         typ: token.claims.typ,

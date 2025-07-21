@@ -1,6 +1,8 @@
 {
   "fmt": {
-    "lineWidth": 100
+    "lineWidth": 100,
+    "operatorPosition": "nextLine",
+    "nextControlFlowPosition": "nextLine"
   },
   "compilerOptions": {
     "lib": [

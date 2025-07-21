@@ -1,36 +1,4 @@
-import { Form } from "../lib/form.js";
-import { FetchBuilder, TOKEN_KEY } from "../lib/fetch.js";
-import { API_KEY, API_URL } from "../scripts/config.js";
-import { setHref } from "../lib/redirect.js";
-import { requireTokenType } from "../scripts/pageRequirements.js";
-
-await requireTokenType("none");
-
-const form = new Form("/register", ["/username", "/displayName"]);
-form.form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-
-  form.lock();
-  form.clearErrors();
-
-  const values = form.getValues();
-  const username = values.get("/username") ?? "";
-  const displayName = values.get("/displayName") ?? "";
-
-  /** @type import("../lib/fetch.js").ServerResponse<any> */
-  const response = await new FetchBuilder("POST", API_URL + "/identities").setHeaders([API_KEY])
-    .setBody({ username, displayName }).fetch();
-
-  if (response.status === "ok" && localStorage.getItem(TOKEN_KEY)) {
-    const params = new URLSearchParams(document.location.search);
-    const redirect = params.get("redirect");
-    const nextPage = redirect ? `/add-first-passkey?redirect=${redirect}` : `/add-first-passkey`;
-    await setHref(nextPage);
-  } else if (response.status === "clientError") {
-    form.setInputErrors(response.problems);
-  } else {
-    form.formError.unexpectedResponse("register");
-  }
-
-  form.unlock();
-});
+// deno-lint-ignore-file
+// deno-fmt-ignore-file
+// @ts-nocheck
+var y=class{element;contents;constructor(t){this.element=p(`${t}/error`,HTMLElement),this.contents=p(`${t}/error/content`,HTMLElement)}clearError(){this.element.classList.add("collapse"),this.element.ariaHidden="true",this.contents.textContent=""}addError(t){if(this.contents.textContent===""){this.setError(`Invalid form: ${t}`);return}this.contents.textContent+=`, ${t}`}setError(t){this.element.classList.remove("collapse"),this.element.ariaHidden="false",this.contents.textContent=t}unexpectedResponse(t){this.setError(`Could not ${t} because the server sent an unexpected response.`)}},k=class{input;error;constructor(t,e){this.input=p(`${t}${e}/input`,HTMLInputElement),this.error=p(`${t}${e}/error`,HTMLElement),this.input.addEventListener("input",()=>{this.input.setCustomValidity("")})}getValue(){return this.input.value}lock(){this.input.disabled=!0}unlock(){this.input.disabled=!1}clearError(){this.input.setCustomValidity(""),this.error.classList.add("hidden"),this.error.ariaHidden="true",this.error.textContent="!"}addError(t){if(this.error.textContent==="!"){this.setError(`Invalid value: ${t}`);return}this.error.textContent+=`, ${t}`,this.input.setCustomValidity(this.error.textContent??"Invalid value")}setError(t){this.input.setCustomValidity(t),this.error.classList.remove("hidden"),this.error.ariaHidden="false",this.error.textContent=t}},w=class{form;formError;submitButton;inputs;constructor(t,e){this.form=p(t,HTMLFormElement),this.formError=new y(t),this.submitButton=p(`${t}/submit`,HTMLButtonElement);let s=new Map;for(let o of e)s.set(o,new k(t,o));this.inputs=s}clearErrors(){this.formError.clearError();for(let t of this.inputs.values())t.clearError()}lock(){this.submitButton.disabled=!0;for(let t of this.inputs.values())t.lock()}unlock(){this.submitButton.disabled=!1;for(let t of this.inputs.values())t.unlock()}setInputErrors(t){if(!t||t.length===0){this.formError.addError("an unknown field is invalid");return}for(let e of t){let s=null;e.pointer&&(s=this.inputs.get(e.pointer)??null),s&&e.detail?s.addError(e.detail):s&&!e.detail?s.addError("unknown reason"):!s&&e.detail?this.formError.addError(e.detail):this.formError.addError("an unknown field is invalid")}}getValues(){let t=new Map;for(let[e,s]of this.inputs)t.set(e,s.getValue());return t}};function p(r,t){let e=document.getElementById(r);if(!e||!(e instanceof t))throw`element '${r}' does not exist`;return e}async function n(r){return location.href=r,await I()}function I(){let r=t=>{setTimeout(()=>r(t),400)};return new Promise(r)}var c="token",l=class{#t;#e;#r=null;#s=null;#n=null;#o=!1;constructor(t,e){this.#t=t,this.#e=e}setBody(t){return this.#s=t,this}setHeaders(t){return this.#r=t,this}setLogout(t,e){return this.#n=t,this.#o=e,this}async fetch(){return await L(this.#t,this.#e,this.#r,this.#s,this.#n,this.#o)}};async function L(r,t,e,s,o,x){let u=new Headers;if(e)for(let a of e)u.append(a[0],a[1]);s&&u.append("content-type","application/json");let E=localStorage.getItem(c);E&&u.append("Authorization",E);let v=null;s&&(v=JSON.stringify(s));let i=await self.fetch(t,{method:r,body:v,headers:u}).catch(a=>(console.warn(a),new Response(null,{status:500})));if(i.ok){let a=i.headers.get("Authorization");return a&&localStorage.setItem(c,a),{status:"ok",body:await i.json().catch(b=>(console.warn(b),{}))}}else return i.status===401?(o&&await h(o,x),{status:"unauthorized"}):i.status===404?{status:"notFound"}:i.status>=400&&i.status<500?{status:"clientError",problems:(await i.json().catch(T=>(console.warn(T),{problems:[]}))).problems??[]}:{status:"serverError"}}async function h(r,t){let e=localStorage.getItem(c);await new l("DELETE",r.deleteTokenEndpoint).setHeaders(r.additionalHeaders).fetch(),localStorage.removeItem(c),e&&alert("Your session has expired");let s=t?`${r.loginHref}?redirect=${encodeURI(location.href)}`:r.loginHref;return await n(s)}var f="http://localhost:8081",m=["X-TS-API-Key","identity-site"],g={deleteTokenEndpoint:f+"/tokens/current",loginHref:"/login",additionalHeaders:[m]};async function H(r){let t=await new l("GET",f+"/tokens/current").setHeaders([m]).fetch(),e=null;if(t.status==="serverError"||t.status==="clientError"){console.error(`recieved unexpected response from server when fetching current token: ${t.status}`);return}switch(t.status==="unauthorized"&&localStorage.removeItem(c),t.status==="ok"&&(e=t.body),r){case"common":return await $(e);case"provisioning":return await C(e);case"none":return await P(e)}}async function $(r){if(!r){let t=encodeURI(location.href);return await n(`/login?redirect=${t}`)}switch(r.typ){case"common":return;case"provisioning":{let t=encodeURI(location.href);return await n(`/add-first-passkey?redirect=${t}`)}default:return await h(g,!0)}}async function C(r){if(!r)return await n("/register");switch(r.typ){case"provisioning":return;case"common":{let e=new URLSearchParams(document.location.search).get("redirect"),s=e?decodeURI(e):"/identity";return await n(s)}default:return await h(g,!1)}}async function P(r){if(r)switch(r.typ){case"common":{let e=new URLSearchParams(document.location.search).get("redirect"),s=e?decodeURI(e):"/identity";return await n(s)}case"provisioning":return await n("/add-first-passkey");default:return await h(g,!1)}}await H("none");var d=new w("/register",["/username","/displayName"]);d.form.addEventListener("submit",async r=>{r.preventDefault(),d.lock(),d.clearErrors();let t=d.getValues(),e=t.get("/username")??"",s=t.get("/displayName")??"",o=await new l("POST",f+"/identities").setHeaders([m]).setBody({username:e,displayName:s}).fetch();if(o.status==="ok"&&localStorage.getItem(c)){let u=new URLSearchParams(document.location.search).get("redirect"),E=u?`/add-first-passkey?redirect=${u}`:"/add-first-passkey";await n(E)}else o.status==="clientError"?d.setInputErrors(o.problems):d.formError.unexpectedResponse("register");d.unlock()});

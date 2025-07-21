@@ -1,14 +1,14 @@
-import { FetchBuilder, logout, TOKEN_KEY } from "../lib/fetch.js";
-import { setHref } from "../lib/redirect.js";
-import { API_KEY, API_URL, LOGOUT_CONFIG } from "./config.js";
+import { FetchBuilder, logout, TOKEN_KEY } from "../lib/fetch.ts";
+import { setHref } from "../lib/redirect.ts";
+import { API_KEY, API_URL, LOGOUT_CONFIG } from "./config.ts";
 
 /**
  * @param { "common" | "provisioning" | "none" } requiredType
  */
-export async function requireTokenType(requiredType) {
-  /** @type import("../lib/fetch.js").ServerResponse<TokenDetails> */
-  const response = await new FetchBuilder("GET", API_URL + "/tokens/current").setHeaders([API_KEY])
-    .fetch();
+export async function requireTokenType(requiredType: "common" | "provisioning" | "none") {
+  const response = await new FetchBuilder("GET", API_URL + "/tokens/current")
+    .setHeaders([API_KEY])
+    .fetch<TokenDetails>();
 
   let token = null;
 
@@ -37,8 +37,7 @@ export async function requireTokenType(requiredType) {
   }
 }
 
-/** @param { TokenDetails | null } token */
-async function requireCommonToken(token) {
+async function requireCommonToken(token: TokenDetails | null) {
   if (!token) {
     const redirect = encodeURI(location.href);
     return await setHref(`/login?redirect=${redirect}`);
@@ -56,8 +55,7 @@ async function requireCommonToken(token) {
   }
 }
 
-/** @param { TokenDetails | null } token */
-async function requireProvisioningToken(token) {
+async function requireProvisioningToken(token: TokenDetails | null) {
   if (!token) {
     return await setHref(`/register`);
   }
@@ -76,8 +74,7 @@ async function requireProvisioningToken(token) {
   }
 }
 
-/** @param { TokenDetails | null } token */
-async function requireNoToken(token) {
+async function requireNoToken(token: TokenDetails | null) {
   if (!token) {
     return;
   }

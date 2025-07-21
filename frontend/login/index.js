@@ -1,1 +1,3 @@
-// TODO if logged in, should redirect to /identity or else the ?redirect
+// deno-lint-ignore-file
+// deno-fmt-ignore-file
+// @ts-nocheck
