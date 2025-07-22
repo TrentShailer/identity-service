@@ -1,19 +1,92 @@
 use core::marker::PhantomData;
 
-use axum::extract::State;
+use axum::extract::{Path, State};
 use http::{HeaderMap, HeaderValue, StatusCode, header::AUTHORIZATION};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use ts_api_helper::{
     ApiKey, DecodeBase64, ErrorResponse, InternalServerError, Json, Problem,
     token::{extractor::Token, json_web_token::TokenType},
     webauthn::{
         persisted_public_key::PersistedPublicKey,
-        public_key_credential::{PublicKeyCredential, Response},
+        public_key_credential::{PublicKeyCredential, Response, Type},
+        public_key_credential_request_options::AllowCredentials,
     },
 };
 use ts_sql_helper_lib::{FromRow, SqlError};
 
-use crate::{ApiState, sql};
+use crate::{ApiState, models::Identity, sql};
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AllowCredentialsResponse {
+    pub allow_credentials: Vec<AllowCredentials>,
+}
+
+pub async fn get_allowed_credentials(
+    _: ApiKey,
+    Path(username): Path<String>,
+    State(state): State<ApiState>,
+) -> Result<(StatusCode, Json<AllowCredentialsResponse>), ErrorResponse> {
+    let connection = state
+        .pool
+        .get()
+        .await
+        .internal_server_error("get db connection")?;
+
+    // Get identity id
+    let Some(identity) = connection
+        .query_opt(
+            sql::identities::get_by_username()[0],
+            sql::identities::GetByUsernameParams {
+                p1: &username,
+                phantom_data: PhantomData,
+            }
+            .params()
+            .as_slice(),
+        )
+        .await
+        .internal_server_error("get identity")?
+    else {
+        return Ok((
+            StatusCode::OK,
+            Json(AllowCredentialsResponse {
+                allow_credentials: vec![],
+            }),
+        ));
+    };
+    let identity = Identity::from_row(&identity).internal_server_error("get identity")?;
+
+    let public_keys = connection
+        .query(
+            sql::public_key::get_by_identity()[0],
+            sql::public_key::GetByIdentityParams {
+                p1: &identity.id,
+                phantom_data: PhantomData,
+            }
+            .params()
+            .as_slice(),
+        )
+        .await
+        .internal_server_error("get public keys")?;
+
+    let allow_credentials = public_keys
+        .iter()
+        .filter_map(|row| {
+            PersistedPublicKey::from_row(row)
+                .map(|key| AllowCredentials {
+                    id: key.raw_id,
+                    transports: key.transports,
+                    r#type: Type::PublicKey,
+                })
+                .ok()
+        })
+        .collect();
+
+    Ok((
+        StatusCode::OK,
+        Json(AllowCredentialsResponse { allow_credentials }),
+    ))
+}
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

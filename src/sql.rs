@@ -186,20 +186,19 @@ pub mod public_key {
             [&self.p1]
         }
     }
-    #[doc = "# SQL\n```sql\nSELECT\r\n  raw_id,\r\n  identity_id,\r\n  display_name,\r\n  public_key,\r\n  public_key_algorithm,\r\n  transports,\r\n  signature_counter,\r\n  created,\r\n  last_used\r\nFROM\r\n  public_keys\r\nWHERE\r\n  raw_id = $1\r\n  AND identity_id = $2;\n```"]
+    #[doc = "# SQL\n```sql\nSELECT\r\n  raw_id,\r\n  identity_id,\r\n  display_name,\r\n  public_key,\r\n  public_key_algorithm,\r\n  transports,\r\n  signature_counter,\r\n  created,\r\n  last_used\r\nFROM\r\n  public_keys\r\nWHERE\r\n  raw_id = $1;\n```"]
     pub fn get_by_id() -> [&'static str; 1usize] {
         [
-            "SELECT\r\n  raw_id,\r\n  identity_id,\r\n  display_name,\r\n  public_key,\r\n  public_key_algorithm,\r\n  transports,\r\n  signature_counter,\r\n  created,\r\n  last_used\r\nFROM\r\n  public_keys\r\nWHERE\r\n  raw_id = $1\r\n  AND identity_id = $2;",
+            "SELECT\r\n  raw_id,\r\n  identity_id,\r\n  display_name,\r\n  public_key,\r\n  public_key_algorithm,\r\n  transports,\r\n  signature_counter,\r\n  created,\r\n  last_used\r\nFROM\r\n  public_keys\r\nWHERE\r\n  raw_id = $1;",
         ]
     }
     pub struct GetByIdParams<'a> {
         pub p1: &'a [u8],
-        pub p2: &'a [u8],
         pub phantom_data: core::marker::PhantomData<&'a ()>,
     }
     impl<'a> GetByIdParams<'a> {
-        pub fn params(&'a self) -> [&'a (dyn postgres::types::ToSql + Sync); 2usize] {
-            [&self.p1, &self.p2]
+        pub fn params(&'a self) -> [&'a (dyn postgres::types::ToSql + Sync); 1usize] {
+            [&self.p1]
         }
     }
     #[doc = "# SQL\n```sql\nUPDATE\r\n  public_keys\r\nSET\r\n  last_used = $1,\r\n  signature_counter = $2\r\nWHERE\r\n  raw_id = $3\r\n  AND identity_id = $4;\n```"]

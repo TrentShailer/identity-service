@@ -10,13 +10,14 @@
     <main>
       <div class="column">
         <htmplate:title icon="finger-print" text="Login" />
+        <htmplate:form-alert form="/login" />
+        <br>
         <div>
           <button id="prompt-resident-key" style="width: 100%">Prompt Resident Key</button>
         </div>
         <htmplate:hr text="or" />
         <div>
           <form id="/login" name="login">
-            <htmplate:form-alert form="/login" />
             <htmplate:form-text-input
               id="/username"
               form="/login"

@@ -113,7 +113,7 @@ impl webauthn::verification::Verifier for ApiState {
         let row = connection
             .query_opt(
                 sql::public_key::get_by_id()[0],
-                sql::public_key::GetByIdentityParams {
+                sql::public_key::GetByIdParams {
                     p1: raw_id,
                     phantom_data: core::marker::PhantomData,
                 }
@@ -214,7 +214,7 @@ impl VerifierError {
 async fn main() -> ReportProgramExit {
     let cli = Cli::parse();
 
-    let filter = tracing_subscriber::filter::LevelFilter::from_level(Level::INFO);
+    let filter = tracing_subscriber::filter::LevelFilter::from_level(Level::DEBUG);
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer()) // TODO verbose
@@ -336,6 +336,10 @@ async fn main() -> ReportProgramExit {
         .route(
             "/credential-request-options",
             get(routes::get_credential_request_options),
+        )
+        .route(
+            "/allowed-credentials/{username}",
+            get(routes::get_allowed_credentials),
         )
         .route("/public-keys", post(routes::post_public_keys))
         .layer(cors)

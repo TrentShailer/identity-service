@@ -52,8 +52,7 @@ SELECT
 FROM
   public_keys
 WHERE
-  raw_id = $1
-  AND identity_id = $2;
+  raw_id = $1;
 
 --- update_last_used
 UPDATE
