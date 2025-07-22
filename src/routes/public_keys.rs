@@ -10,6 +10,7 @@ use ts_api_helper::{
         persisted_public_key::PersistedPublicKey,
         public_key_credential::{PublicKeyCredential, Response, Type},
         public_key_credential_request_options::AllowCredentials,
+        verification::VerificationResult,
     },
 };
 use ts_sql_helper_lib::{FromRow, SqlError};
@@ -134,14 +135,14 @@ pub async fn post_public_keys(
         .decode_base64()
         .internal_server_error("decode token subject")?;
 
-    let is_valid = credential
+    let verification_result = credential
         .verify(&state, Some(&identity_id))
         .await
         .internal_server_error("verify credential")?;
 
-    if !is_valid {
+    let VerificationResult::Valid { identity_id } = verification_result else {
         return Err(ErrorResponse::unauthenticated());
-    }
+    };
 
     let public_key = {
         let connection = state

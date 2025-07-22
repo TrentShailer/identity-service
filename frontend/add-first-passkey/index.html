@@ -1,4 +1,4 @@
-<!-- htmplate v0.8.1 -->
+<!-- htmplate v0.8.2 -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -64,13 +64,13 @@
             <div style="display: flex">
               <input
                 type="checkbox"
-                id="/register/residentKey/input"
-                name="/register/residentKey/input"
+                id="/addPasskey/residentKey/input"
+                name="/addPasskey/residentKey/input"
               />
               <label
                 style="margin-left: 0.5rem"
-                id="/register/residentKey/label"
-                for="/register/residentKey/input"
+                id="/addPasskey/residentKey/label"
+                for="/addPasskey/residentKey/input"
               >
                 <span>Prefer resident key</span>
               </label>
@@ -85,6 +85,13 @@
                 />
               </svg>
             </div>
+            <small
+              class="hidden"
+              role="status"
+              aria-labelledby="/addPasskey/residentKey/label"
+              aria-hidden="true"
+              id="/addPasskey/residentKey/error"
+            >!</small>
           </div>
           <aside class="alert info">
             <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">

@@ -10,7 +10,10 @@ use serde::{Deserialize, Serialize};
 use ts_api_helper::{
     ApiKey, DecodeBase64, EncodeBase64, ErrorResponse, InternalServerError, Json,
     token::{extractor::Token, json_web_token::TokenType},
-    webauthn::public_key_credential::{PublicKeyCredential, Response},
+    webauthn::{
+        public_key_credential::{PublicKeyCredential, Response},
+        verification::VerificationResult,
+    },
 };
 use ts_sql_helper_lib::SqlTimestamp;
 
@@ -84,10 +87,9 @@ pub async fn post_tokens(
 ) -> Result<(StatusCode, HeaderMap, Json<TokenDetails>), ErrorResponse> {
     let PostTokensBody { credential, typ } = body;
 
-    let response = match credential.response {
-        Response::AssertionResponse(ref response) => response,
-        _ => return Err(ErrorResponse::bad_request(vec![])),
-    };
+    if !matches!(credential.response, Response::AssertionResponse(_)) {
+        return Err(ErrorResponse::bad_request(vec![]));
+    }
 
     match typ {
         TokenType::Common | TokenType::Consent { .. } => {}
@@ -106,22 +108,19 @@ pub async fn post_tokens(
         None => None,
     };
 
-    let is_valid = credential
+    let verification_result = credential
         .verify(&state, identity_id.as_deref())
         .await
         .internal_server_error("verify credential")?;
 
-    if !is_valid {
-        // TODO unauthenticated only makes sense if there is a token
+    let VerificationResult::Valid { identity_id } = verification_result else {
         return Err(ErrorResponse::unauthenticated());
-    }
-
-    // TODO update signature counter?
+    };
 
     let mut header_map = HeaderMap::new();
     let (token, signature) = state
         .signing_jwk
-        .issue(response.user_handle.encode_base64(), typ)
+        .issue(identity_id.encode_base64(), typ)
         .internal_server_error("issue token")?;
 
     let header = token

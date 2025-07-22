@@ -49,7 +49,15 @@ export class Input {
   }
 
   getValue(): string {
-    return this.input.value;
+    if (this.input.type === "checkbox") {
+      if (this.input.checked) {
+        return "checked";
+      } else {
+        return "unchecked";
+      }
+    } else {
+      return this.input.value;
+    }
   }
 
   lock() {

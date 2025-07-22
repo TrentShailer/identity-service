@@ -13,6 +13,7 @@ document.getElementById("prompt-resident-key")!.addEventListener("mouseup", asyn
   form.clearErrors();
 
   const requestOptions = await getCredentialRequestOptions(null);
+  console.log(requestOptions);
   if (!requestOptions) {
     form.formError.unexpectedResponse("get credential request options");
     return;
@@ -51,6 +52,7 @@ form.form.addEventListener("submit", async (event) => {
     const username = values.get("/username") ?? "";
 
     const requestOptions = await getCredentialRequestOptions(username);
+    console.log(requestOptions);
     if (!requestOptions) {
       form.formError.unexpectedResponse("get credential request options");
       form.unlock();
@@ -110,13 +112,13 @@ async function getCredentialRequestOptions(
       "GET",
       API_URL + `/allowed-credentials/${username}`,
     ).setHeaders([API_KEY])
-      .fetch<{ allowedCredentials: PublicKeyCredentialDescriptorJSON[] }>();
+      .fetch<{ allowCredentials: PublicKeyCredentialDescriptorJSON[] }>();
     if (allowedCredentialsResponse.status !== "ok") {
       return null;
     }
 
     optionsJson
-      .allowCredentials = allowedCredentialsResponse.body.allowedCredentials;
+      .allowCredentials = allowedCredentialsResponse.body.allowCredentials;
   }
 
   return PublicKeyCredential.parseRequestOptionsFromJSON(optionsJson);

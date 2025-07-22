@@ -7,7 +7,7 @@ import { requireTokenType } from "../scripts/pageRequirements.ts";
 
 await requireTokenType("provisioning");
 
-const form = new Form("/addPasskey", ["/displayName"]);
+const form = new Form("/addPasskey", ["/displayName", "/residentKey"]);
 form.form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
@@ -17,6 +17,7 @@ form.form.addEventListener("submit", async (event) => {
 
     const values = form.getValues();
     const displayName = values.get("/displayName") ?? "";
+    const preferResidentKey = values.get("/residentKey") ?? "unchecked";
 
     // Get token details
     const tokenResponse = await new FetchBuilder("GET", API_URL + "/tokens/current")
@@ -25,7 +26,8 @@ form.form.addEventListener("submit", async (event) => {
       .fetch<TokenDetails>();
     if (tokenResponse.status !== "ok") {
       form.formError.unexpectedResponse("register a passkey");
-      throw "";
+      form.unlock();
+      return;
     }
     const token = tokenResponse.body;
 
@@ -37,7 +39,8 @@ form.form.addEventListener("submit", async (event) => {
       .fetch<Challenge>();
     if (challengeResponse.status !== "ok") {
       form.formError.unexpectedResponse("register a passkey");
-      throw "";
+      form.unlock();
+      return;
     }
     const challenge = challengeResponse.body.challenge;
 
@@ -50,12 +53,25 @@ form.form.addEventListener("submit", async (event) => {
       .fetch<PublicKeyCredentialCreationOptionsJSON>();
     if (credentialCreationOptionsResponse.status !== "ok") {
       form.formError.unexpectedResponse("register a passkey");
-      throw "";
+      form.unlock();
+      return;
     }
     credentialCreationOptionsResponse.body.challenge = challenge;
+    if (
+      preferResidentKey === "checked"
+      && credentialCreationOptionsResponse.body.authenticatorSelection
+    ) {
+      credentialCreationOptionsResponse.body.authenticatorSelection.residentKey = "preferred";
+    }
+    else if (credentialCreationOptionsResponse.body.authenticatorSelection) {
+      credentialCreationOptionsResponse.body.authenticatorSelection.residentKey = "discouraged";
+    }
+
     const credentialCreationOptions = PublicKeyCredential.parseCreationOptionsFromJSON(
       credentialCreationOptionsResponse.body,
     );
+
+    console.log(credentialCreationOptions);
 
     // Get the credentials
     const credential = await navigator.credentials.create({ publicKey: credentialCreationOptions })
@@ -68,7 +84,8 @@ form.form.addEventListener("submit", async (event) => {
       || !(credential.response instanceof AuthenticatorAttestationResponse)
     ) {
       form.formError.setError("Could not register a passkey because the prompt was cancelled.");
-      throw "";
+      form.unlock();
+      return;
     }
 
     const authenticatorData = credential.response.getAuthenticatorData();
@@ -77,7 +94,8 @@ form.form.addEventListener("submit", async (event) => {
     const transports = credential.response.getTransports();
     if (!publicKey) {
       form.formError.setError("Could not register the passkey because it wasn't created.");
-      throw "";
+      form.unlock();
+      return;
     }
 
     const attestationResponse = {

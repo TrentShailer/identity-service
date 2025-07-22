@@ -214,7 +214,7 @@ impl VerifierError {
 async fn main() -> ReportProgramExit {
     let cli = Cli::parse();
 
-    let filter = tracing_subscriber::filter::LevelFilter::from_level(Level::DEBUG);
+    let filter = tracing_subscriber::filter::LevelFilter::from_level(Level::INFO);
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer()) // TODO verbose
