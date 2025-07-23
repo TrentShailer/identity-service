@@ -13,6 +13,12 @@
         <htmplate:title icon="finger-print" text="Your Identity" />
         <section>
           <h2>Basic Info</h2>
+          <htmplate:alert
+            status="error"
+            class="collapse"
+            id="identityAlert"
+            style="margin-bottom: 1rem"
+          />
           <table>
             <tbody>
               <tr>
@@ -33,9 +39,12 @@
         <br>
         <section>
           <h2>Passkeys</h2>
-          <htmplate:alert status="error" hidden="true" id="asd" />
-          <br>
-
+          <htmplate:alert
+            status="error"
+            class="collapse"
+            id="passkeysAlert"
+            style="margin-bottom: 1rem"
+          />
           <div id="passkeys">
             <htmplate:icon-button icon="add" text="Add New Passkey" />
           </div>
