@@ -1,0 +1,73 @@
+table {
+  width: 100%;
+  margin: 0 auto;
+  border-collapse: collapse;
+  overflow-y: auto;
+  display: block;
+}
+
+tbody {
+  width: 100%;
+  display: table;
+}
+
+th,
+td {
+  padding: 0.6rem;
+}
+
+tr > th {
+  text-align: left;
+  padding-right: 2rem;
+}
+
+tr {
+  border-top: var(--surface2) solid 1px;
+  border-bottom: var(--surface2) solid 1px;
+  white-space: nowrap;
+}
+
+tr:first-child {
+  border-top: none;
+}
+tr:last-child {
+  border-bottom: none;
+}
+
+section {
+  outline: var(--surface2) solid 1px;
+  padding: 1rem 2rem;
+  border-radius: var(--radius);
+}
+
+section h2, section h3 {
+  margin-top: 0;
+}
+
+.passkey {
+  outline: var(--surface2) solid 1px;
+  padding: 1rem 1rem 1rem 1.5rem;
+  border-radius: var(--radius);
+}
+
+.passkey > div:first-child {
+  display: grid;
+  grid-template-columns: 1fr max-content;
+}
+
+.passkey > div:last-child {
+  display: flex;
+  align-items: center;
+  column-gap: 2rem;
+  flex-wrap: wrap;
+}
+
+#passkeys > button {
+  width: 100%;
+}
+
+#passkeys {
+  display: flex;
+  flex-direction: column;
+  row-gap: 0.5rem;
+}

@@ -3,12 +3,44 @@
   <head>
     <htmplate:metadata root="../" />
     <meta name="description" content="Identity — Trent Shailer">
+    <link rel="stylesheet" href="./style.css" />
     <title>Identity — Trent Shailer</title>
   </head>
   <body>
     <header></header>
     <main>
-      <div class="column"></div>
+      <div class="column">
+        <htmplate:title icon="finger-print" text="Your Identity" />
+        <section>
+          <h2>Basic Info</h2>
+          <table>
+            <tbody>
+              <tr>
+                <th scope="row"><b>Username</b></th>
+                <td style="width: 100%" id="username"></td>
+              </tr>
+              <tr>
+                <th scope="row"><b>Display Name</b></th>
+                <td style="width: 100%" id="displayName"></td>
+              </tr>
+              <tr>
+                <th scope="row"><b>Created</b></th>
+                <td style="width: 100%" id="created"></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+        <br>
+        <section>
+          <h2>Passkeys</h2>
+          <htmplate:alert status="error" hidden="true" id="asd" />
+          <br>
+
+          <div id="passkeys">
+            <htmplate:icon-button icon="add" text="Add New Passkey" />
+          </div>
+        </section>
+      </div>
     </main>
     <htmplate:footer />
     <script type="module" src="index.js"></script>
