@@ -5,6 +5,7 @@ use http::{
 };
 use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
+use tokio_postgres::Client;
 use ts_api_helper::{
     ApiKey, DecodeBase64, EncodeBase64, ErrorResponse, InternalServerError, Json,
     token::{extractor::Token, json_web_token::TokenType},
@@ -13,6 +14,7 @@ use ts_api_helper::{
         verification::VerificationResult,
     },
 };
+use ts_rust_helper::error::ErrorLogger;
 use ts_sql_helper_lib::{SqlTimestamp, query};
 
 use crate::ApiState;
@@ -31,24 +33,29 @@ pub async fn delete_current_token(
     Token(token): Token,
     State(state): State<ApiState>,
 ) -> Result<StatusCode, ErrorResponse> {
-    let exp = SqlTimestamp(token.claims.exp);
-
     let connection = state
         .pool
         .get()
         .await
         .internal_server_error("get db connection")?;
-    connection
+    if !revoke_token(&connection, &token.claims.tid, token.claims.exp).await {
+        return Err(ErrorResponse::internal_server_error());
+    };
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn revoke_token(client: &Client, token_id: &str, expiry: Timestamp) -> bool {
+    client
         .execute(
             RevokeToken::QUERY,
-            RevokeToken::params(&token.claims.tid, &exp)
+            RevokeToken::params(token_id, &SqlTimestamp(expiry))
                 .as_array()
                 .as_slice(),
         )
         .await
-        .internal_server_error("execute token revoke")?;
-
-    Ok(StatusCode::NO_CONTENT)
+        .log_error()
+        .is_ok()
 }
 
 #[derive(Serialize)]

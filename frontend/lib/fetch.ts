@@ -85,7 +85,7 @@ export async function fetch<T>(
   }
 
   const token = localStorage.getItem(TOKEN_KEY);
-  if (token) {
+  if (token && !headers.has("Authorization")) {
     headers.append("Authorization", token);
   }
 

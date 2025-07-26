@@ -7,12 +7,12 @@ use http::{StatusCode, header::AUTHORIZATION};
 use rand::Rng;
 use serde::Deserialize;
 use ts_api_helper::{
-    ApiKey, EncodeBase64, ErrorResponse, InternalServerError, Json, Problem,
+    ApiKey, DecodeBase64, EncodeBase64, ErrorResponse, InternalServerError, Json, Problem,
     token::{extractor::Token, json_web_token::TokenType},
 };
 use ts_sql_helper_lib::{FromRow, SqlError, query};
 
-use crate::{ApiState, models::Identity};
+use crate::{ApiState, models::Identity, routes::revoke_token};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -190,4 +190,53 @@ pub async fn get_identity(
     let identity = Identity::from_row(&row).internal_server_error("convert row to identity")?;
 
     Ok((StatusCode::OK, Json(identity)))
+}
+
+query! {
+    name: DeleteIdentity,
+    query: r#"
+        DELETE FROM
+            identities
+        WHERE
+            id = $1::BYTEA"#
+}
+
+pub async fn delete_identity(
+    _: ApiKey,
+    Token(token): Token,
+    State(state): State<ApiState>,
+    Path(identity_id): Path<String>,
+) -> Result<StatusCode, ErrorResponse> {
+    let expected_consent = TokenType::Consent {
+        act: format!("DELETE /identities/{identity_id}"),
+    };
+    if token.claims.typ != expected_consent {
+        return Err(ErrorResponse::unauthenticated());
+    }
+
+    let connection = state
+        .pool
+        .get()
+        .await
+        .internal_server_error("get pool connection")?;
+
+    revoke_token(&connection, &token.claims.tid, token.claims.exp).await;
+
+    if token.claims.sub != identity_id {
+        return Err(ErrorResponse::unauthenticated());
+    }
+
+    let identity_id = identity_id
+        .decode_base64()
+        .map_err(|_| ErrorResponse::bad_request(vec![Problem::pointer("/identityId")]))?;
+
+    connection
+        .execute(
+            DeleteIdentity::QUERY,
+            DeleteIdentity::params(&identity_id).as_array().as_slice(),
+        )
+        .await
+        .internal_server_error("delete identity")?;
+
+    Ok(StatusCode::NO_CONTENT)
 }

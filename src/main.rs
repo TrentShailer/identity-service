@@ -160,12 +160,13 @@ async fn main() -> ReportProgramExit {
         .route("/tokens/current", delete(routes::delete_current_token).get(routes::get_current_token))
         .route("/tokens", post(routes::post_tokens))
         .route("/identities", post(routes::post_identities))
-        .route("/identities/{identityId}", get(routes::get_identity))
+        .route("/identities/{identityId}", get(routes::get_identity).delete(routes::delete_identity))
         .route("/challenges", post(routes::post_challenges))
         .route("/credential-creation-options", get(routes::get_credential_creation_options))
         .route("/credential-request-options", get(routes::get_credential_request_options))
         .route("/allowed-credentials/{username}", get(routes::get_allowed_credentials))
         .route("/public-keys", post(routes::post_public_keys).get(routes::get_public_keys))
+        .route("/public-keys/{publicKeyId}", delete(routes::delete_public_key))
         .layer(cors)
         .with_state(state);
 

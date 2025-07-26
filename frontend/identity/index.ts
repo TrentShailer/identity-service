@@ -1,9 +1,11 @@
-import { FetchBuilder, logout } from "../lib/fetch.ts";
+import { FetchBuilder, logout, TOKEN_KEY } from "../lib/fetch.ts";
 import { setHref } from "../lib/redirect.ts";
 import { API_KEY, API_URL, LOGOUT_CONFIG } from "../scripts/config.ts";
 import { getToken } from "../scripts/pageRequirements.ts";
 import { Identity, PublicKey } from "../types.ts";
-import { formatOptions, Intl, parseUtcToLocalDateTime } from "../lib/temporal.ts";
+import { formatOptions, parseUtcToLocalDateTime } from "../lib/temporal.ts";
+import { getConsent } from "../scripts/consent.ts";
+import { FormError } from "../lib/form.ts";
 
 const token = await getToken();
 if (!token) {
@@ -14,27 +16,57 @@ if (token.typ === "provisioning") {
   await setHref("/add-passkey");
 }
 
-document.getElementById("deleteAccount")!.addEventListener("mouseup", async () => {
-  // deleteAccountAlert
+const deleteIdentityAlert = new FormError("/deleteIdentity");
+document.getElementById("deleteIdentity")!.addEventListener("mouseup", async () => {
+  const consent = await getConsent(`DELETE /identities/${token.sub}`);
+  if (consent === "cancelled") {
+    deleteIdentityAlert.setError(
+      "Could not delete your identity because consent prompt was cancelled.",
+    );
+    return;
+  }
+  else if (consent === "unauthenticated") {
+    await logout(LOGOUT_CONFIG, false);
+    return;
+  }
+  else if (consent === "unexpectedError") {
+    deleteIdentityAlert.unexpectedResponse("delete your identity");
+    return;
+  }
 
-  // TODO consent flow must be in-page
-  // TODO old token must be preserved in case of failure to perform action.
-  // TODO get consent
-  // TODO perform action
-  // TODO logout
+  const response = await new FetchBuilder("DELETE", API_URL + `/identities/${token.sub}`)
+    .setHeaders([API_KEY, ["Authorization", consent.consentToken]])
+    .setLogout(LOGOUT_CONFIG, false)
+    .fetch();
+  if (response.status === "clientError") {
+    deleteIdentityAlert.setError("Could not your identity");
+    if (response.problems.length != 0) {
+      for (const problem of response.problems) {
+        if (problem.detail) {
+          passkeyAlert.addError(problem.detail);
+        }
+      }
+    }
+    return;
+  }
+  else if (response.status !== "ok") {
+    deleteIdentityAlert.unexpectedResponse("delete your identity");
+    return;
+  }
+
+  localStorage.removeItem(TOKEN_KEY);
+  await logout(LOGOUT_CONFIG, false);
 });
 
 const identityResponse = await new FetchBuilder("GET", API_URL + `/identities/${token.sub}`)
   .setHeaders([API_KEY])
   .setLogout(LOGOUT_CONFIG, false)
   .fetch<Identity>();
-const identityAlert = document.getElementById("/identity/error/content")!;
+const identityAlert = new FormError("/identity");
 switch (identityResponse.status) {
   case "clientError":
   case "serverError": {
-    identityAlert.textContent =
-      "Could not fetch identity details, the server sent an unexpected response.";
-    identityAlert.classList.remove("collapse");
+    identityAlert.unexpectedResponse("fetch identity details");
     break;
   }
   case "unauthorized":
@@ -62,13 +94,11 @@ const passkeyResponse = await new FetchBuilder(
 ).setLogout(LOGOUT_CONFIG, false)
   .setHeaders([API_KEY])
   .fetch<PublicKeysResponse>();
-const passkeyAlert = document.getElementById("/passkeys/error/content")!;
+const passkeyAlert = new FormError("/passkeys");
 switch (passkeyResponse.status) {
   case "clientError":
   case "serverError": {
-    passkeyAlert.textContent =
-      "Could not fetch the passkey details, the server sent an unexpected response.";
-    passkeyAlert.classList.remove("collapse");
+    passkeyAlert.unexpectedResponse("fetch the passkey details");
     break;
   }
   case "unauthorized":
@@ -128,5 +158,40 @@ function addPasskey(passkey: PublicKey, parent: HTMLElement) {
 }
 
 async function deletePasskey(id: string) {
-  // TODO
+  const consent = await getConsent(`DELETE /public-keys/${id}`);
+  if (consent === "cancelled") {
+    passkeyAlert.setError("Could not delete passkey because consent prompt was cancelled.");
+    return;
+  }
+  else if (consent === "unauthenticated") {
+    await logout(LOGOUT_CONFIG, false);
+    return;
+  }
+  else if (consent === "unexpectedError") {
+    passkeyAlert.unexpectedResponse("delete the passkey");
+    return;
+  }
+
+  const response = await new FetchBuilder("DELETE", API_URL + `/public-keys/${id}`)
+    .setHeaders([API_KEY, ["Authorization", consent.consentToken]])
+    .setLogout(LOGOUT_CONFIG, false)
+    .fetch();
+  if (response.status === "clientError") {
+    passkeyAlert.setError("Could not delete passkey");
+    if (response.problems.length != 0) {
+      for (const problem of response.problems) {
+        if (problem.detail) {
+          passkeyAlert.addError(problem.detail);
+        }
+      }
+    }
+
+    return;
+  }
+  else if (response.status !== "ok") {
+    passkeyAlert.unexpectedResponse("delete the passkey");
+    return;
+  }
+
+  location.reload();
 }
