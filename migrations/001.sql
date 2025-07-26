@@ -1,4 +1,3 @@
---- migrate
 CREATE TABLE IF NOT EXISTS identities (
   id BYTEA PRIMARY KEY NOT NULL,
   username VARCHAR UNIQUE NOT NULL,

@@ -1,4 +1,4 @@
-type TokenDetails = {
+export type TokenDetails = {
   bearer: string;
   sub: string;
   typ: "common" | "consent" | "provisioning";
@@ -6,15 +6,15 @@ type TokenDetails = {
   act: string | null;
 };
 
-type Challenge = {
+export type Challenge = {
   challenge: string;
   identityId: string | null;
   issued: string;
-  expires: string; // TODO
-  origin: string; // TODO
+  expires: string;
+  origin: string;
 };
 
-type PublicKey = {
+export type PublicKey = {
   rawId: string;
   identityId: string;
   displayName: string;
@@ -22,6 +22,14 @@ type PublicKey = {
   publicKeyAlgorithm: number;
   transports: string[];
   signatureCounter: number;
-  created: string; // TODO
-  lastUsed: string | null; // TODO
+  created: string;
+  lastUsed: string | null;
+};
+
+export type Identity = {
+  id: string;
+  username: string;
+  displayName: string;
+  expires: string | null;
+  created: string;
 };

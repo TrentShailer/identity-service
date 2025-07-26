@@ -1,10 +1,21 @@
-use core::marker::PhantomData;
-
 use axum::extract::{Path, State};
 use http::StatusCode;
 use ts_api_helper::{ApiKey, ErrorResponse, InternalServerError};
+use ts_sql_helper_lib::query;
 
-use crate::{ApiState, sql};
+use crate::ApiState;
+
+query! {
+    name: GetRevokedToken,
+    query: r#"
+        SELECT
+            token,
+            expires
+        FROM
+            revocations
+        WHERE
+            token = $1::VARCHAR;"#
+}
 
 pub async fn get_revoked_token(
     ApiKey(_): ApiKey,
@@ -19,13 +30,8 @@ pub async fn get_revoked_token(
 
     let row = connection
         .query_opt(
-            sql::revocation::get_by_token()[0],
-            sql::revocation::GetByTokenParams {
-                p1: &token,
-                phantom_data: PhantomData,
-            }
-            .params()
-            .as_slice(),
+            GetRevokedToken::QUERY,
+            GetRevokedToken::params(&token).as_array().as_slice(),
         )
         .await
         .internal_server_error("get revocation by token")?;

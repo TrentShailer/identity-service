@@ -1,10 +1,20 @@
-import { Form } from "../lib/form.js";
-import { FetchBuilder, TOKEN_KEY } from "../lib/fetch.js";
+import { Form } from "../lib/form.ts";
+import { FetchBuilder, TOKEN_KEY } from "../lib/fetch.ts";
 import { API_KEY, API_URL } from "../scripts/config.ts";
-import { setHref } from "../lib/redirect.js";
-import { requireTokenType } from "../scripts/pageRequirements.ts";
+import { setHref } from "../lib/redirect.ts";
+import { getToken } from "../scripts/pageRequirements.ts";
 
-await requireTokenType("none");
+const token = await getToken();
+if (token) {
+  switch (token.typ) {
+    case "common":
+      await setHref("/identity");
+      break;
+    case "provisioning":
+      await setHref("/add-passkey");
+      break;
+  }
+}
 
 const form = new Form("/register", ["/username", "/displayName"]);
 form.form.addEventListener("submit", async (event) => {
@@ -25,7 +35,7 @@ form.form.addEventListener("submit", async (event) => {
   if (response.status === "ok" && localStorage.getItem(TOKEN_KEY)) {
     const params = new URLSearchParams(document.location.search);
     const redirect = params.get("redirect");
-    const nextPage = redirect ? `/add-first-passkey?redirect=${redirect}` : `/add-first-passkey`;
+    const nextPage = redirect ? `/add-passkey?redirect=${redirect}` : `/add-passkey`;
     await setHref(nextPage);
   }
   else if (response.status === "clientError") {

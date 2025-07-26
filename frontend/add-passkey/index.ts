@@ -1,11 +1,27 @@
 import { base64Encode } from "../lib/base64.ts";
-import { FetchBuilder } from "../lib/fetch.ts";
+import { FetchBuilder, logout } from "../lib/fetch.ts";
 import { Form } from "../lib/form.ts";
 import { API_KEY, API_URL, LOGOUT_CONFIG } from "../scripts/config.ts";
 import { setHref } from "../lib/redirect.ts";
-import { requireTokenType } from "../scripts/pageRequirements.ts";
+import { getToken } from "../scripts/pageRequirements.ts";
+import { Challenge, TokenDetails } from "../types.ts";
 
-await requireTokenType("provisioning");
+const token = await getToken();
+if (!token) {
+  await setHref("/login");
+  throw new Error();
+}
+
+document.getElementById("cancel")?.addEventListener("mouseup", async (event) => {
+  event.preventDefault();
+
+  if (token.typ === "provisioning") {
+    await logout(LOGOUT_CONFIG, false);
+  }
+  else {
+    await setHref("/identity");
+  }
+});
 
 const form = new Form("/addPasskey", ["/displayName", "/residentKey"]);
 form.form.addEventListener("submit", async (event) => {

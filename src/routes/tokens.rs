@@ -1,5 +1,3 @@
-use core::marker::PhantomData;
-
 use axum::extract::State;
 use http::{
     StatusCode,
@@ -15,9 +13,18 @@ use ts_api_helper::{
         verification::VerificationResult,
     },
 };
-use ts_sql_helper_lib::SqlTimestamp;
+use ts_sql_helper_lib::{SqlTimestamp, query};
 
-use crate::{ApiState, sql};
+use crate::ApiState;
+
+query! {
+    name: RevokeToken,
+    query: r#"
+        INSERT INTO
+            revocations (token, expires)
+        VALUES
+            ($1::VARCHAR, $2::TIMESTAMPTZ);"#
+}
 
 pub async fn delete_current_token(
     _: ApiKey,
@@ -33,14 +40,10 @@ pub async fn delete_current_token(
         .internal_server_error("get db connection")?;
     connection
         .execute(
-            sql::revocation::revoke()[0],
-            sql::revocation::RevokeParams {
-                p1: &token.claims.tid,
-                p2: &exp,
-                phantom_data: PhantomData,
-            }
-            .params()
-            .as_slice(),
+            RevokeToken::QUERY,
+            RevokeToken::params(&token.claims.tid, &exp)
+                .as_array()
+                .as_slice(),
         )
         .await
         .internal_server_error("execute token revoke")?;
@@ -79,6 +82,18 @@ pub struct PostTokensBody {
     pub typ: TokenType,
 }
 
+query! {
+    name: UpdatePasskeyOnLogin,
+    query: r#"
+        UPDATE
+            public_keys
+        SET
+            last_used = (timezone('utc', NOW())),
+            signature_counter = $1::INT8
+        WHERE
+            raw_id = $2::BYTEA;"#
+}
+
 pub async fn post_tokens(
     _: ApiKey,
     token: Option<Token>,
@@ -87,9 +102,9 @@ pub async fn post_tokens(
 ) -> Result<(StatusCode, HeaderMap, Json<TokenDetails>), ErrorResponse> {
     let PostTokensBody { credential, typ } = body;
 
-    if !matches!(credential.response, Response::AssertionResponse(_)) {
+    let Response::AssertionResponse(assertion_response) = &credential.response else {
         return Err(ErrorResponse::bad_request(vec![]));
-    }
+    };
 
     match typ {
         TokenType::Common | TokenType::Consent { .. } => {}
@@ -116,6 +131,29 @@ pub async fn post_tokens(
     let VerificationResult::Valid { identity_id } = verification_result else {
         return Err(ErrorResponse::unauthenticated());
     };
+
+    {
+        let connection = state
+            .pool
+            .get()
+            .await
+            .internal_server_error("get database connection")?;
+        connection
+            .execute(
+                UpdatePasskeyOnLogin::QUERY,
+                UpdatePasskeyOnLogin::params(
+                    &assertion_response
+                        .authenticator_data
+                        .signature_counter
+                        .into(),
+                    &credential.raw_id,
+                )
+                .as_array()
+                .as_slice(),
+            )
+            .await
+            .internal_server_error("update public key")?;
+    }
 
     let mut header_map = HeaderMap::new();
     let (token, signature) = state

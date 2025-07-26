@@ -3,9 +3,20 @@ import { FetchBuilder } from "../lib/fetch.ts";
 import { Form } from "../lib/form.ts";
 import { setHref } from "../lib/redirect.ts";
 import { API_KEY, API_URL } from "../scripts/config.ts";
-import { requireTokenType } from "../scripts/pageRequirements.ts";
+import { getToken } from "../scripts/pageRequirements.ts";
+import { Challenge, TokenDetails } from "../types.ts";
 
-await requireTokenType("none");
+const token = await getToken();
+if (token) {
+  switch (token.typ) {
+    case "common":
+      await setHref("/identity");
+      break;
+    case "provisioning":
+      await setHref("/add-passkey");
+      break;
+  }
+}
 
 const form = new Form("/login", ["/username"]);
 

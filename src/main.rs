@@ -8,207 +8,25 @@ use axum::{
     routing::{delete, get, post},
 };
 use http::{HeaderName, Uri};
-use reqwest::Client;
+use tokio_postgres::GenericClient;
 use tracing::Level;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use ts_api_helper::{
-    ApiKeyValidationConfig, ConnectionPool, HasApiKeyValidationConfig, HasHttpClient, cors_layer,
-    token::{
-        JsonWebKeySetCache, SigningJsonWebKey,
-        extractor::{HasKeySetCache, HasRevocationEndpoint},
-        json_web_key::JsonWebKeySet,
-    },
-    webauthn::{
-        self, challenge::Challenge, persisted_public_key::PersistedPublicKey,
-        public_key_credential_creation_options::RelyingParty,
-    },
-};
+use ts_api_helper::cors_layer;
 use ts_rust_helper::{
     command::{Cli, Command},
     config::try_load_config,
     error::{IntoErrorReport, ReportProgramExit},
 };
-use ts_sql_helper_lib::FromRow;
+use ts_sql_helper_lib::perform_migrations_async;
 
 use crate::config::Config;
+
+pub use crate::state::ApiState;
 
 mod config;
 mod models;
 mod routes;
-mod sql;
-
-#[derive(Debug, Clone)]
-pub struct ApiState {
-    pub pool: ConnectionPool,
-    pub jwks_file: JsonWebKeySet,
-    pub signing_jwk: Arc<SigningJsonWebKey>,
-    pub jwks_cache: JsonWebKeySetCache,
-    pub api_key_config: ApiKeyValidationConfig,
-    pub http_client: Client,
-    pub revocation_endpoint: String,
-    pub relying_party: RelyingParty,
-}
-
-impl HasKeySetCache for ApiState {
-    fn jwks_cache(&self) -> &JsonWebKeySetCache {
-        &self.jwks_cache
-    }
-}
-impl HasApiKeyValidationConfig for ApiState {
-    fn api_key_config(&self) -> &ApiKeyValidationConfig {
-        &self.api_key_config
-    }
-}
-impl HasHttpClient for ApiState {
-    fn http_client(&self) -> &Client {
-        &self.http_client
-    }
-}
-impl HasRevocationEndpoint for ApiState {
-    fn revocation_endpoint(&self) -> &str {
-        &self.revocation_endpoint
-    }
-}
-impl webauthn::verification::Verifier for ApiState {
-    type Error = VerifierError;
-
-    async fn get_challenge(&self, challenge: &[u8]) -> Result<Option<Challenge>, Self::Error> {
-        let connection = self
-            .pool
-            .get()
-            .await
-            .map_err(VerifierError::pool_connection)?;
-
-        let row = connection
-            .query_opt(
-                sql::challenge::take()[0],
-                sql::challenge::TakeParams {
-                    p1: challenge,
-                    phantom_data: core::marker::PhantomData,
-                }
-                .params()
-                .as_slice(),
-            )
-            .await
-            .map_err(VerifierError::query_challenge)?;
-
-        match row {
-            Some(row) => Ok(Some(
-                Challenge::from_row(&row).map_err(VerifierError::challenge_from_row)?,
-            )),
-            None => Ok(None),
-        }
-    }
-
-    async fn get_public_key(
-        &self,
-        raw_id: &[u8],
-    ) -> Result<Option<PersistedPublicKey>, Self::Error> {
-        let connection = self
-            .pool
-            .get()
-            .await
-            .map_err(VerifierError::pool_connection)?;
-
-        let row = connection
-            .query_opt(
-                sql::public_key::get_by_id()[0],
-                sql::public_key::GetByIdParams {
-                    p1: raw_id,
-                    phantom_data: core::marker::PhantomData,
-                }
-                .params()
-                .as_slice(),
-            )
-            .await
-            .map_err(VerifierError::query_public_key)?;
-
-        match row {
-            Some(row) => Ok(Some(
-                PersistedPublicKey::from_row(&row).map_err(VerifierError::public_key_from_row)?,
-            )),
-            None => Ok(None),
-        }
-    }
-
-    fn relying_party_id(&self) -> &str {
-        &self.relying_party.id
-    }
-}
-/// Error variants for WebAuthN response verification.
-#[derive(Debug)]
-#[non_exhaustive]
-#[allow(missing_docs)]
-pub enum VerifierError {
-    #[non_exhaustive]
-    PoolConnection {
-        source: bb8::RunError<tokio_postgres::Error>,
-    },
-
-    #[non_exhaustive]
-    QueryChallenge { source: tokio_postgres::Error },
-
-    #[non_exhaustive]
-    QueryPublicKey { source: tokio_postgres::Error },
-
-    #[non_exhaustive]
-    ChallengeFromRow { source: tokio_postgres::Error },
-
-    #[non_exhaustive]
-    PublicKeyFromRow { source: tokio_postgres::Error },
-}
-impl core::fmt::Display for VerifierError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match &self {
-            Self::PoolConnection { .. } => write!(f, "could not get a connection from the pool"),
-            Self::QueryChallenge { .. } => write!(f, "could not query the challenge"),
-            Self::QueryPublicKey { .. } => write!(f, "could not query the public key"),
-            Self::ChallengeFromRow { .. } => {
-                write!(f, "could not convert the row into a challenge")
-            }
-            Self::PublicKeyFromRow { .. } => {
-                write!(f, "could not convert the row into a public key")
-            }
-        }
-    }
-}
-impl core::error::Error for VerifierError {
-    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
-        match &self {
-            Self::PoolConnection { source, .. } => Some(source),
-            Self::QueryChallenge { source, .. } => Some(source),
-            Self::QueryPublicKey { source, .. } => Some(source),
-            Self::ChallengeFromRow { source, .. } => Some(source),
-            Self::PublicKeyFromRow { source, .. } => Some(source),
-        }
-    }
-}
-impl VerifierError {
-    #[allow(missing_docs)]
-    pub fn pool_connection(source: bb8::RunError<tokio_postgres::Error>) -> Self {
-        Self::PoolConnection { source }
-    }
-
-    #[allow(missing_docs)]
-    pub fn query_challenge(source: tokio_postgres::Error) -> Self {
-        Self::QueryChallenge { source }
-    }
-
-    #[allow(missing_docs)]
-    pub fn query_public_key(source: tokio_postgres::Error) -> Self {
-        Self::QueryPublicKey { source }
-    }
-
-    #[allow(missing_docs)]
-    pub fn public_key_from_row(source: tokio_postgres::Error) -> Self {
-        Self::PublicKeyFromRow { source }
-    }
-
-    #[allow(missing_docs)]
-    pub fn challenge_from_row(source: tokio_postgres::Error) -> Self {
-        Self::ChallengeFromRow { source }
-    }
-}
+mod state;
 
 #[tokio::main]
 async fn main() -> ReportProgramExit {
@@ -253,12 +71,9 @@ async fn main() -> ReportProgramExit {
             .await
             .into_report("get database pool connection")?;
 
-        for migration in sql::migrations::migrate() {
-            connection
-                .execute(migration, &[])
-                .await
-                .into_report("execute migration")?;
-        }
+        perform_migrations_async(connection.client(), None)
+            .await
+            .into_report("execute migrations")?;
     }
 
     let state = {
@@ -302,6 +117,25 @@ async fn main() -> ReportProgramExit {
     // TODO repeating task to remove expired identities
     // TODO how are other services going to know when an identity has been deleted?
     // TODO ^ shared database? Event stream?
+    /*
+    DELETE FROM
+      identities
+    WHERE
+      expires > timezone('utc', NOW())
+    RETURNING
+      id;
+
+    DELETE FROM
+      challenges
+    WHERE
+      expires > timezone('utc', NOW());
+
+    DELETE FROM
+      revocations
+    WHERE
+      expires > timezone('utc', NOW());
+
+         */
 
     let origins: Vec<_> = config
         .allowed_origins
@@ -319,29 +153,19 @@ async fn main() -> ReportProgramExit {
         &[],
     );
 
+    #[rustfmt::skip]
     let app = Router::new()
         .route("/.well-known/jwks.json", get(routes::get_well_known_jwks))
         .route("/revoked-tokens/{tokenId}", get(routes::get_revoked_token))
-        .route(
-            "/tokens/current",
-            delete(routes::delete_current_token).get(routes::get_current_token),
-        )
+        .route("/tokens/current", delete(routes::delete_current_token).get(routes::get_current_token))
         .route("/tokens", post(routes::post_tokens))
         .route("/identities", post(routes::post_identities))
+        .route("/identities/{identityId}", get(routes::get_identity))
         .route("/challenges", post(routes::post_challenges))
-        .route(
-            "/credential-creation-options",
-            get(routes::get_credential_creation_options),
-        )
-        .route(
-            "/credential-request-options",
-            get(routes::get_credential_request_options),
-        )
-        .route(
-            "/allowed-credentials/{username}",
-            get(routes::get_allowed_credentials),
-        )
-        .route("/public-keys", post(routes::post_public_keys))
+        .route("/credential-creation-options", get(routes::get_credential_creation_options))
+        .route("/credential-request-options", get(routes::get_credential_request_options))
+        .route("/allowed-credentials/{username}", get(routes::get_allowed_credentials))
+        .route("/public-keys", post(routes::post_public_keys).get(routes::get_public_keys))
         .layer(cors)
         .with_state(state);
 

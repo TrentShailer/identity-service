@@ -1,4 +1,4 @@
-<!-- htmplate v0.10.0 -->
+<!-- htmplate v0.11.2 -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -16,7 +16,12 @@
     <main>
       <div class="column">
         <div class="title">
-          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+          <svg
+            aria-hidden="true"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 512 512"
+            class="mauve"
+          >
             <path
               d="M63.28,202a15.29,15.29,0,0,1-7.7-2,14.84,14.84,0,0,1-5.52-20.46C69.34,147.36,128,72.25,256,72.25c55.47,0,104.12,14.57,144.53,43.29,33.26,23.57,51.9,50.25,60.78,63.1a14.79,14.79,0,0,1-4,20.79,15.52,15.52,0,0,1-21.24-4C420,172.32,371,102,256,102c-112.25,0-163,64.71-179.53,92.46A15,15,0,0,1,63.28,202Z"
             />
@@ -37,13 +42,19 @@
         </div>
         <section>
           <h2>Basic Info</h2>
-          <aside class="collapse alert error" id="identityAlert" style="margin-bottom: 1rem">
+          <aside
+            class="alert error collapse"
+            aria-hidden="true"
+            id="/identity/error"
+            role="alert"
+            style="margin-bottom: 1rem"
+          >
             <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
               <path
                 d="M256,48C141.31,48,48,141.31,48,256s93.31,208,208,208,208-93.31,208-208S370.69,48,256,48Zm0,319.91a20,20,0,1,1,20-20A20,20,0,0,1,256,367.91Zm21.72-201.15-5.74,122a16,16,0,0,1-32,0l-5.74-121.94v-.05a21.74,21.74,0,1,1,43.44,0Z"
               />
             </svg>
-            <div></div>
+            <div id="/identity/error/content"></div>
           </aside>
           <table>
             <tbody>
@@ -65,17 +76,26 @@
         <br>
         <section>
           <h2>Passkeys</h2>
-          <aside class="collapse alert error" id="passkeysAlert" style="margin-bottom: 1rem">
+          <aside
+            class="alert error collapse"
+            aria-hidden="true"
+            id="/passkeys/error"
+            role="alert"
+            style="margin-bottom: 1rem"
+          >
             <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
               <path
                 d="M256,48C141.31,48,48,141.31,48,256s93.31,208,208,208,208-93.31,208-208S370.69,48,256,48Zm0,319.91a20,20,0,1,1,20-20A20,20,0,0,1,256,367.91Zm21.72-201.15-5.74,122a16,16,0,0,1-32,0l-5.74-121.94v-.05a21.74,21.74,0,1,1,43.44,0Z"
               />
             </svg>
-            <div></div>
+            <div id="/passkeys/error/content"></div>
           </aside>
           <div id="passkeys">
-            <button class="icon-button">
-              <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+            <a class="button" href="/add-passkey"><svg
+                aria-hidden="true"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 512 512"
+              >
                 <line
                   x1="256"
                   y1="112"
@@ -90,10 +110,35 @@
                   y2="256"
                   style="fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: 32px"
                 />
-              </svg> Add New Passkey
-            </button>
+              </svg> Add New Passkey</a>
           </div>
         </section>
+        <br>
+        <aside
+          class="alert error collapse"
+          aria-hidden="true"
+          id="/deleteAccount/error"
+          role="alert"
+          style="margin-bottom: 1rem"
+        >
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+            <path
+              d="M256,48C141.31,48,48,141.31,48,256s93.31,208,208,208,208-93.31,208-208S370.69,48,256,48Zm0,319.91a20,20,0,1,1,20-20A20,20,0,0,1,256,367.91Zm21.72-201.15-5.74,122a16,16,0,0,1-32,0l-5.74-121.94v-.05a21.74,21.74,0,1,1,43.44,0Z"
+            />
+          </svg>
+          <div id="/deleteAccount/error/content"></div>
+        </aside>
+        <button class="red icon-button" id="deleteAccount" style="width: 100%">
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+            <path
+              d="M296,64H216a7.91,7.91,0,0,0-8,8V96h96V72A7.91,7.91,0,0,0,296,64Z"
+              style="fill: none"
+            />
+            <path
+              d="M432,96H336V72a40,40,0,0,0-40-40H216a40,40,0,0,0-40,40V96H80a16,16,0,0,0,0,32H97L116,432.92c1.42,26.85,22,47.08,48,47.08H348c26.13,0,46.3-19.78,48-47L415,128h17a16,16,0,0,0,0-32ZM192.57,416H192a16,16,0,0,1-16-15.43l-8-224a16,16,0,1,1,32-1.14l8,224A16,16,0,0,1,192.57,416ZM272,400a16,16,0,0,1-32,0V176a16,16,0,0,1,32,0ZM304,96H208V72a7.91,7.91,0,0,1,8-8h80a7.91,7.91,0,0,1,8,8Zm32,304.57A16,16,0,0,1,320,416h-.58A16,16,0,0,1,304,399.43l8-224a16,16,0,1,1,32,1.14Z"
+            />
+          </svg> Delete Account
+        </button>
       </div>
     </main>
     <footer>

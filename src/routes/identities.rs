@@ -1,25 +1,39 @@
-use core::marker::PhantomData;
-
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http::{HeaderMap, HeaderValue},
 };
+use base64ct::{Base64UrlUnpadded, Encoding};
 use http::{StatusCode, header::AUTHORIZATION};
 use rand::Rng;
 use serde::Deserialize;
 use ts_api_helper::{
     ApiKey, EncodeBase64, ErrorResponse, InternalServerError, Json, Problem,
-    token::json_web_token::TokenType,
+    token::{extractor::Token, json_web_token::TokenType},
 };
-use ts_sql_helper_lib::{FromRow, SqlError};
+use ts_sql_helper_lib::{FromRow, SqlError, query};
 
-use crate::{ApiState, models::Identity, sql};
+use crate::{ApiState, models::Identity};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PostIdentities {
     pub username: String,
     pub display_name: String,
+}
+
+query! {
+    name: CreateIdentity,
+    query: r#"
+    INSERT INTO
+        identities (id, username, display_name)
+    VALUES
+        ($1::BYTEA, $2::VARCHAR, $3::VARCHAR)
+    RETURNING
+        id,
+        username,
+        display_name,
+        created,
+        expires;"#
 }
 
 pub async fn post_identities(
@@ -85,15 +99,10 @@ pub async fn post_identities(
 
         let row = connection
             .query_one(
-                sql::identities::create()[0],
-                sql::identities::CreateParams {
-                    p1: &id,
-                    p2: &username,
-                    p3: &display_name,
-                    phantom_data: PhantomData,
-                }
-                .params()
-                .as_slice(),
+                CreateIdentity::QUERY,
+                CreateIdentity::params(&id, &username, &display_name)
+                    .as_array()
+                    .as_slice(),
             )
             .await
             .unique_violation(|| ErrorResponse {
@@ -131,4 +140,54 @@ pub async fn post_identities(
     );
 
     Ok((StatusCode::CREATED, headers, Json(identity)))
+}
+
+query! {
+    name: GetIdentity,
+    query: r#"
+    SELECT
+        id,
+        username,
+        display_name,
+        created,
+        expires
+    FROM
+        identities
+    WHERE
+        id = $1::BYTEA;"#
+}
+
+pub async fn get_identity(
+    State(state): State<ApiState>,
+    _: ApiKey,
+    Token(token): Token,
+    Path(identity_id): Path<String>,
+) -> Result<(StatusCode, Json<Identity>), ErrorResponse> {
+    if token.claims.typ != TokenType::Common {
+        return Err(ErrorResponse::unauthenticated());
+    }
+
+    if identity_id != token.claims.sub {
+        return Err(ErrorResponse::not_found(Some("/identityId")));
+    }
+
+    let identity_id =
+        Base64UrlUnpadded::decode_vec(&identity_id).internal_server_error("decode identity ID")?;
+
+    let connection = state
+        .pool
+        .get()
+        .await
+        .internal_server_error("get pool connection")?;
+    let row = connection
+        .query_opt(
+            GetIdentity::QUERY,
+            GetIdentity::params(&identity_id).as_array().as_slice(),
+        )
+        .await
+        .internal_server_error("query identity")?
+        .ok_or_else(|| ErrorResponse::not_found(Some("/identityId")))?;
+    let identity = Identity::from_row(&row).internal_server_error("convert row to identity")?;
+
+    Ok((StatusCode::OK, Json(identity)))
 }

@@ -1,5 +1,3 @@
-use core::marker::PhantomData;
-
 use axum::extract::State;
 use http::{
     StatusCode,
@@ -11,14 +9,30 @@ use ts_api_helper::{
     ApiKey, DecodeBase64, ErrorResponse, InternalServerError, Json, token::extractor::Token,
     webauthn::challenge::Challenge,
 };
-use ts_sql_helper_lib::{FromRow, SqlError};
+use ts_sql_helper_lib::{FromRow, SqlError, query};
 
-use crate::{ApiState, sql};
+use crate::ApiState;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PostChallengesBody {
     pub identity_id: Option<String>,
+}
+
+query! {
+    name: CreateChallenge,
+    optional_params: [2],
+    query: r#"
+        INSERT INTO
+            challenges (challenge, identity_id, origin)
+        VALUES
+            ($1::BYTEA, $2::BYTEA, $3::VARCHAR)
+        RETURNING
+            challenge,
+            identity_id,
+            origin,
+            issued,
+            expires;"#
 }
 
 pub async fn post_challenges(
@@ -65,15 +79,10 @@ pub async fn post_challenges(
     let challenge = {
         let row = connection
             .query_one(
-                sql::challenge::create()[0],
-                sql::challenge::CreateParams {
-                    p1: &challenge,
-                    p2: identity_id.as_deref(),
-                    p3: host,
-                    phantom_data: PhantomData,
-                }
-                .params()
-                .as_slice(),
+                CreateChallenge::QUERY,
+                CreateChallenge::params(&challenge, identity_id.as_deref(), host)
+                    .as_array()
+                    .as_slice(),
             )
             .await
             .fk_violation(ErrorResponse::unauthenticated)?

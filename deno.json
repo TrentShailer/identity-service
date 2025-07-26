@@ -9,11 +9,7 @@
       "es2021",
       "dom",
       "dom.iterable"
-    ],
-    "types": [
-      "frontend/types.d.ts"
-    ],
-    "checkJs": true
+    ]
   },
   "unstable": ["fmt-sql"]
 }

@@ -1,6 +1,5 @@
-use core::marker::PhantomData;
-
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
+use base64ct::{Base64UrlUnpadded, Encoding};
 use http::{HeaderMap, HeaderValue, StatusCode, header::AUTHORIZATION};
 use serde::{Deserialize, Serialize};
 use ts_api_helper::{
@@ -8,19 +7,36 @@ use ts_api_helper::{
     token::{extractor::Token, json_web_token::TokenType},
     webauthn::{
         persisted_public_key::PersistedPublicKey,
-        public_key_credential::{PublicKeyCredential, Response, Type},
+        public_key_credential::{PublicKeyCredential, Response, Transports, Type},
         public_key_credential_request_options::AllowCredentials,
         verification::VerificationResult,
     },
 };
-use ts_sql_helper_lib::{FromRow, SqlError};
+use ts_sql_helper_lib::{FromRow, SqlError, query};
 
-use crate::{ApiState, models::Identity, sql};
+use crate::ApiState;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AllowCredentialsResponse {
     pub allow_credentials: Vec<AllowCredentials>,
+}
+
+query! {
+    name: GetPublicKeyByUsername,
+    row: {raw_id: Vec<u8>, transports: Vec<Transports>},
+    query: r#"
+        SELECT
+            raw_id,
+            transports
+        FROM
+            public_keys
+        INNER JOIN
+            identities
+        ON
+            identities.id = public_keys.identity_id
+        WHERE
+            identities.username = $1::VARCHAR;"#
 }
 
 pub async fn get_allowed_credentials(
@@ -34,52 +50,24 @@ pub async fn get_allowed_credentials(
         .await
         .internal_server_error("get db connection")?;
 
-    // Get identity id
-    let Some(identity) = connection
-        .query_opt(
-            sql::identities::get_by_username()[0],
-            sql::identities::GetByUsernameParams {
-                p1: &username,
-                phantom_data: PhantomData,
-            }
-            .params()
-            .as_slice(),
-        )
-        .await
-        .internal_server_error("get identity")?
-    else {
-        return Ok((
-            StatusCode::OK,
-            Json(AllowCredentialsResponse {
-                allow_credentials: vec![],
-            }),
-        ));
-    };
-    let identity = Identity::from_row(&identity).internal_server_error("get identity")?;
-
-    let public_keys = connection
+    let allow_credentials = connection
         .query(
-            sql::public_key::get_by_identity()[0],
-            sql::public_key::GetByIdentityParams {
-                p1: &identity.id,
-                phantom_data: PhantomData,
-            }
-            .params()
-            .as_slice(),
+            GetPublicKeyByUsername::QUERY,
+            GetPublicKeyByUsername::params(&username)
+                .as_array()
+                .as_slice(),
         )
         .await
-        .internal_server_error("get public keys")?;
-
-    let allow_credentials = public_keys
-        .iter()
-        .filter_map(|row| {
-            PersistedPublicKey::from_row(row)
-                .map(|key| AllowCredentials {
-                    id: key.raw_id,
-                    transports: key.transports,
-                    r#type: Type::PublicKey,
-                })
-                .ok()
+        .internal_server_error("get allowed credentials")?
+        .into_iter()
+        .map(|row| GetPublicKeyByUsernameRow::from_row(&row))
+        .collect::<Result<Vec<_>, _>>()
+        .internal_server_error("convert row to GetPublicKeyByUsernameRow")?
+        .into_iter()
+        .map(|credential| AllowCredentials {
+            id: credential.raw_id,
+            transports: credential.transports,
+            r#type: Type::PublicKey,
         })
         .collect();
 
@@ -94,6 +82,40 @@ pub async fn get_allowed_credentials(
 pub struct CreatePublicKeyBody {
     credential: PublicKeyCredential,
     display_name: String,
+}
+
+query! {
+    name: CreatePublicKey,
+    query: r#"
+        INSERT INTO
+        public_keys (
+            raw_id,
+            identity_id,
+            display_name,
+            public_key,
+            public_key_algorithm,
+            transports,
+            signature_counter
+        )
+        VALUES (
+            $1::BYTEA,
+            $2::BYTEA,
+            $3::VARCHAR,
+            $4::BYTEA,
+            $5::INT4,
+            $6::VARCHAR[],
+            $7::INT8
+        )
+        RETURNING
+            raw_id,
+            identity_id,
+            display_name,
+            public_key,
+            public_key_algorithm,
+            transports,
+            signature_counter,
+            created,
+            last_used;"#
 }
 
 pub async fn post_public_keys(
@@ -125,7 +147,7 @@ pub async fn post_public_keys(
                 return Err(ErrorResponse::unauthenticated());
             }
         }
-        TokenType::Provisioning => {}
+        TokenType::Provisioning | TokenType::Common => {}
         _ => return Err(ErrorResponse::unauthenticated()),
     }
 
@@ -158,7 +180,7 @@ pub async fn post_public_keys(
             .map(|transport| transport.to_string())
             .collect();
 
-        let signature_counter = response
+        let signature_counter: i64 = response
             .method_results
             .authenticator_data
             .signature_counter
@@ -169,18 +191,17 @@ pub async fn post_public_keys(
 
         let row = connection
             .query_one(
-                sql::public_key::create()[0],
-                sql::public_key::CreateParams {
-                    p1: &credential.raw_id,
-                    p2: &identity_id,
-                    p3: &display_name,
-                    p4: &response.method_results.public_key,
-                    p5: &algorithm,
-                    p6: &signature_counter,
-                    p7: &transports,
-                    phantom_data: PhantomData,
-                }
-                .params()
+                CreatePublicKey::QUERY,
+                CreatePublicKey::params(
+                    &credential.raw_id,
+                    &identity_id,
+                    &display_name,
+                    &response.method_results.public_key,
+                    &algorithm,
+                    &transports,
+                    &signature_counter,
+                )
+                .as_array()
                 .as_slice(),
             )
             .await
@@ -215,4 +236,85 @@ pub async fn post_public_keys(
     }
 
     Ok((StatusCode::CREATED, header_map, Json(public_key)))
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicKeysResponse {
+    pub public_keys: Vec<PersistedPublicKey>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicKeysQuery {
+    pub identity_id: Option<String>,
+}
+
+query! {
+    name: GetPublicKeys,
+    query: r#"
+        SELECT
+            raw_id,
+            identity_id,
+            display_name,
+            public_key,
+            public_key_algorithm,
+            transports,
+            signature_counter,
+            created,
+            last_used
+        FROM
+            public_keys
+        WHERE
+            identity_id = ANY($1::BYTEA[])
+            "#
+}
+
+pub async fn get_public_keys(
+    _: ApiKey,
+    Token(token): Token,
+    State(state): State<ApiState>,
+    Query(query): Query<PublicKeysQuery>,
+) -> Result<(StatusCode, Json<PublicKeysResponse>), ErrorResponse> {
+    if token.claims.typ != TokenType::Common {
+        return Err(ErrorResponse::unauthenticated());
+    }
+
+    let identity_ids = if let Some(query) = query.identity_id {
+        let ids = query.split(",");
+        ids.filter_map(|id| {
+            if id != token.claims.sub {
+                return None;
+            }
+
+            Some(Base64UrlUnpadded::decode_vec(id))
+        })
+        .collect::<Result<_, _>>()
+        .map_err(|_| ErrorResponse::bad_request(vec![Problem::pointer("/identityId")]))?
+    } else {
+        vec![
+            Base64UrlUnpadded::decode_vec(&token.claims.sub)
+                .internal_server_error("decode token sub")?,
+        ]
+    };
+
+    let connection = state
+        .pool
+        .get()
+        .await
+        .internal_server_error("get db connection")?;
+
+    let public_keys = connection
+        .query(
+            GetPublicKeys::QUERY,
+            GetPublicKeys::params(&identity_ids).as_array().as_slice(),
+        )
+        .await
+        .internal_server_error("get public keys")?
+        .into_iter()
+        .map(|row| PersistedPublicKey::from_row(&row))
+        .collect::<Result<Vec<_>, _>>()
+        .internal_server_error("convert public key to persisted public key")?;
+
+    Ok((StatusCode::OK, Json(PublicKeysResponse { public_keys })))
 }

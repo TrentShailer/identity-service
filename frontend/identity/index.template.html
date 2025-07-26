@@ -13,12 +13,7 @@
         <htmplate:title icon="finger-print" text="Your Identity" />
         <section>
           <h2>Basic Info</h2>
-          <htmplate:alert
-            status="error"
-            class="collapse"
-            id="identityAlert"
-            style="margin-bottom: 1rem"
-          />
+          <htmplate:form-alert form="/identity" style="margin-bottom: 1rem" />
           <table>
             <tbody>
               <tr>
@@ -39,16 +34,24 @@
         <br>
         <section>
           <h2>Passkeys</h2>
-          <htmplate:alert
-            status="error"
-            class="collapse"
-            id="passkeysAlert"
-            style="margin-bottom: 1rem"
-          />
+          <htmplate:form-alert form="/passkeys" style="margin-bottom: 1rem" />
           <div id="passkeys">
-            <htmplate:icon-button icon="add" text="Add New Passkey" />
+            <htmplate:icon-button
+              href="/add-passkey"
+              icon="add"
+              text="Add New Passkey"
+            />
           </div>
         </section>
+        <br>
+        <htmplate:form-alert form="/deleteAccount" style="margin-bottom: 1rem" />
+        <htmplate:icon-button
+          id="deleteAccount"
+          icon="trash"
+          text="Delete Account"
+          class="red"
+          style="width: 100%"
+        />
       </div>
     </main>
     <htmplate:footer />

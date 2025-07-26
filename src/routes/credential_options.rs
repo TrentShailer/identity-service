@@ -5,8 +5,7 @@ use ts_api_helper::{
     ApiKey, DecodeBase64, ErrorResponse, InternalServerError, Json,
     token::extractor::Token,
     webauthn::{
-        persisted_public_key::PersistedPublicKey,
-        public_key_credential::{Hint, Type, UserVerification},
+        public_key_credential::{Hint, Transports, Type, UserVerification},
         public_key_credential_creation_options::{
             Attestation, AuthenticatorSelection, ExcludeCredentials, Extensions,
             PublicKeyCredentialCreationOptions, PublicKeyParameters, ResidentKey, User,
@@ -16,10 +15,36 @@ use ts_api_helper::{
         },
     },
 };
-use ts_rust_helper::error::{ErrorLogger, IntoErrorReport};
-use ts_sql_helper_lib::FromRow;
+use ts_sql_helper_lib::{FromRow, ParseFromRow, query};
 
-use crate::{ApiState, models::Identity, sql};
+use crate::ApiState;
+
+query! {
+    name: GetIdentity,
+    row: {id: Vec<u8>, username: String, display_name: String},
+    query: r#"
+        SELECT
+            id,
+            username,
+            display_name
+        FROM
+            identities
+        WHERE
+            id = $1::BYTEA;"#
+}
+
+query! {
+    name: GetExcludedCredentials,
+    row: {raw_id: Vec<u8>, transports: Vec<Transports>},
+    query: r#"
+        SELECT
+            raw_id,
+            transports
+        FROM
+            public_keys
+        WHERE
+            identity_id = $1::BYTEA"#
+}
 
 pub async fn get_credential_creation_options(
     _: ApiKey,
@@ -32,66 +57,43 @@ pub async fn get_credential_creation_options(
         .decode_base64()
         .internal_server_error("decode token subject")?;
 
-    let identity = {
-        let connection = state
-            .pool
-            .get()
-            .await
-            .internal_server_error("get db connection")?;
-        let row = connection
-            .query_opt(
-                sql::identities::get_by_id()[0],
-                sql::identities::GetByIdParams {
-                    p1: &identity_id,
-                    phantom_data: core::marker::PhantomData,
-                }
-                .params()
+    let connection = state
+        .pool
+        .get()
+        .await
+        .internal_server_error("get db connection")?;
+
+    let identity = connection
+        .query_opt(
+            GetIdentity::QUERY,
+            GetIdentity::params(&identity_id).as_array().as_slice(),
+        )
+        .await
+        .internal_server_error("query identity by id")?
+        .ok_or_else(ErrorResponse::unauthenticated)?
+        .parse::<GetIdentityRow>()
+        .internal_server_error("convert row to identity row")?;
+
+    let exclude_credentials = connection
+        .query(
+            GetExcludedCredentials::QUERY,
+            GetExcludedCredentials::params(&identity_id)
+                .as_array()
                 .as_slice(),
-            )
-            .await
-            .internal_server_error("query identity by id")?;
-
-        match row {
-            Some(row) => {
-                Identity::from_row(&row).internal_server_error("convert row to identity")?
-            }
-            None => return Err(ErrorResponse::unauthenticated()),
-        }
-    };
-
-    let exclude_credentials = {
-        let connection = state
-            .pool
-            .get()
-            .await
-            .internal_server_error("get db connection")?;
-        let rows = connection
-            .query(
-                sql::public_key::get_by_identity()[0],
-                sql::public_key::GetByIdentityParams {
-                    p1: &identity_id,
-                    phantom_data: core::marker::PhantomData,
-                }
-                .params()
-                .as_slice(),
-            )
-            .await
-            .internal_server_error("get public key by identity")?;
-
-        rows.into_iter()
-            .filter_map(|row| {
-                PersistedPublicKey::from_row(&row)
-                    .into_report("convert row to public key")
-                    .log_error()
-                    .ok()
-            })
-            .map(|key| ExcludeCredentials {
-                id: key.raw_id,
-                transports: Some(key.transports),
-                r#type: Type::PublicKey,
-            })
-            .collect::<Vec<_>>()
-    };
+        )
+        .await
+        .internal_server_error("get excluded credentials")?
+        .into_iter()
+        .map(|row| GetExcludedCredentialsRow::from_row(&row))
+        .collect::<Result<Vec<_>, _>>()
+        .internal_server_error("convert row to excluded credentials")?
+        .into_iter()
+        .map(|credential| ExcludeCredentials {
+            id: credential.raw_id,
+            transports: Some(credential.transports),
+            r#type: Type::PublicKey,
+        })
+        .collect();
 
     Ok((
         StatusCode::OK,
@@ -128,6 +130,23 @@ pub struct RequestQuery {
     pub username: Option<String>,
 }
 
+query! {
+    name: GetPublicKeyByUsername,
+    row: {raw_id: Vec<u8>, transports: Vec<Transports>},
+    query: r#"
+        SELECT
+            id,
+            transports
+        FROM
+            public_keys
+        INNER JOIN
+            identities
+        ON
+            identities.id = public_keys.identity_id
+        WHERE
+            identities.username = $1::VARCHAR;"#
+}
+
 pub async fn get_credential_request_options(
     _: ApiKey,
     State(state): State<ApiState>,
@@ -141,48 +160,26 @@ pub async fn get_credential_request_options(
                 .await
                 .internal_server_error("get db connection")?;
 
-            let identity_row = connection
-                .query_opt(
-                    sql::identities::get_by_username()[0],
-                    sql::identities::GetByUsernameParams {
-                        p1: username,
-                        phantom_data: core::marker::PhantomData,
-                    }
-                    .params()
-                    .as_slice(),
-                )
-                .await
-                .internal_server_error("query identity by username")?
-                .ok_or_else(|| ErrorResponse::not_found(Some("/username")))?;
-
-            let identity = Identity::from_row(&identity_row)
-                .internal_server_error("convert row to identity")?;
-
             let allow_credentials = connection
                 .query(
-                    sql::public_key::get_by_identity()[0],
-                    sql::public_key::GetByIdentityParams {
-                        p1: &identity.id,
-                        phantom_data: core::marker::PhantomData,
-                    }
-                    .params()
-                    .as_slice(),
+                    GetPublicKeyByUsername::QUERY,
+                    GetPublicKeyByUsername::params(username)
+                        .as_array()
+                        .as_slice(),
                 )
                 .await
-                .internal_server_error("query public key by identity")?
+                .internal_server_error("get allow credentials")?
                 .into_iter()
-                .filter_map(|row| {
-                    PersistedPublicKey::from_row(&row)
-                        .into_report("convert row to public key")
-                        .log_error()
-                        .ok()
-                })
-                .map(|key| AllowCredentials {
-                    id: key.raw_id,
-                    transports: key.transports,
+                .map(|row| GetPublicKeyByUsernameRow::from_row(&row))
+                .collect::<Result<Vec<_>, _>>()
+                .internal_server_error("convert row to GetPublicKeyByUsernameRow")?
+                .into_iter()
+                .map(|credential| AllowCredentials {
+                    id: credential.raw_id,
+                    transports: credential.transports,
                     r#type: Type::PublicKey,
                 })
-                .collect::<Vec<_>>();
+                .collect();
 
             Some(allow_credentials)
         }
