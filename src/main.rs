@@ -1,6 +1,6 @@
 //! Personal identity provider and authorisation server.
 
-use core::str::FromStr;
+use core::{str::FromStr, time::Duration};
 use std::sync::Arc;
 
 use axum::{
@@ -8,14 +8,15 @@ use axum::{
     routing::{delete, get, post},
 };
 use http::{HeaderName, Uri};
-use tokio_postgres::GenericClient;
+use tokio::task;
+use tokio_postgres::{Client, GenericClient};
 use tracing::Level;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use ts_api_helper::cors_layer;
 use ts_rust_helper::{
     command::{Cli, Command},
     config::try_load_config,
-    error::{IntoErrorReport, ReportProgramExit},
+    error::{ErrorLogger, IntoErrorReport, ReportProgramExit},
 };
 use ts_sql_helper_lib::perform_migrations_async;
 
@@ -32,10 +33,20 @@ mod state;
 async fn main() -> ReportProgramExit {
     let cli = Cli::parse();
 
-    let filter = tracing_subscriber::filter::LevelFilter::from_level(Level::INFO);
+    let level = if cli.verbose {
+        Level::DEBUG
+    } else {
+        Level::INFO
+    };
+
+    let filter = tracing_subscriber::filter::LevelFilter::from_level(level);
 
     tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer()) // TODO verbose
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_file(true)
+                .with_line_number(true),
+        )
         .with(filter)
         .init();
 
@@ -103,7 +114,7 @@ async fn main() -> ReportProgramExit {
         let relying_party = config.relying_party;
 
         ApiState {
-            pool,
+            pool: pool.clone(),
             jwks_file,
             signing_jwk,
             jwks_cache,
@@ -114,28 +125,24 @@ async fn main() -> ReportProgramExit {
         }
     };
 
-    // TODO repeating task to remove expired identities
-    // TODO how are other services going to know when an identity has been deleted?
-    // TODO ^ shared database? Event stream?
-    /*
-    DELETE FROM
-      identities
-    WHERE
-      expires > timezone('utc', NOW())
-    RETURNING
-      id;
+    // Repeating task to remove expired items
+    let _cleanup_task = {
+        let pool = pool.clone();
+        task::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(60 * 60));
 
-    DELETE FROM
-      challenges
-    WHERE
-      expires > timezone('utc', NOW());
-
-    DELETE FROM
-      revocations
-    WHERE
-      expires > timezone('utc', NOW());
-
-         */
+            loop {
+                {
+                    let Ok(connection) = pool.get().await.log_error() else {
+                        interval.tick().await;
+                        continue;
+                    };
+                    cleanup(&connection).await;
+                }
+                interval.tick().await;
+            }
+        })
+    };
 
     let origins: Vec<_> = config
         .allowed_origins
@@ -176,4 +183,48 @@ async fn main() -> ReportProgramExit {
     axum::serve(listener, app).await.into_report("axum serve")?;
 
     Ok(())
+}
+
+async fn cleanup(client: &Client) {
+    let Ok(count) = client
+        .execute(
+            "DELETE FROM identities WHERE expires > timezone('utc', NOW());",
+            &[],
+        )
+        .await
+        .log_error()
+    else {
+        return;
+    };
+    if count > 0 {
+        tracing::info!("cleaned up {count} identities");
+    }
+
+    let Ok(count) = client
+        .execute(
+            "DELETE FROM challenges WHERE expires > timezone('utc', NOW());",
+            &[],
+        )
+        .await
+        .log_error()
+    else {
+        return;
+    };
+    if count > 0 {
+        tracing::info!("cleaned up {count} challenges");
+    }
+
+    let Ok(count) = client
+        .execute(
+            "DELETE FROM revocations WHERE expires > timezone('utc', NOW());",
+            &[],
+        )
+        .await
+        .log_error()
+    else {
+        return;
+    };
+    if count > 0 {
+        tracing::info!("cleaned up {count} revocations");
+    }
 }
