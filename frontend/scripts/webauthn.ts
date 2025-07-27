@@ -1,5 +1,5 @@
 import { base64Encode } from "../lib/base64.ts";
-import { FetchBuilder, TOKEN_KEY } from "../lib/fetch.ts";
+import { FetchBuilder, getToken, setToken } from "../lib/fetch.ts";
 import { Challenge, Identity, TokenDetails } from "../types.ts";
 import { API_KEY, API_URL } from "./config.ts";
 
@@ -148,7 +148,7 @@ export async function requestConsentToken(
   }
 
   const token = await requestTokenIssued(credential, "consent", action);
-  localStorage.setItem(TOKEN_KEY, originalToken.bearer);
+  await setToken(originalToken.bearer);
   return token;
 }
 
@@ -245,11 +245,11 @@ async function requestTokenIssued(
     return { status: "error" };
   }
 
-  const token = localStorage.getItem(TOKEN_KEY);
+  const token = await getToken();
   if (!token) {
     return { status: "error" };
   }
-  return { status: "ok", data: token };
+  return { status: "ok", data: token.bearer };
 }
 
 async function requestCredentialCreation(

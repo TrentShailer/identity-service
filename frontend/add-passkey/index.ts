@@ -1,9 +1,12 @@
 import { Form } from "../lib/form.ts";
 import { setHref } from "../lib/redirect.ts";
+import { setConfig } from "../scripts/config.ts";
 import { getToken, logout } from "../scripts/token.ts";
 import { requestPasskeyCreation } from "../scripts/webauthn.ts";
 
-const token = getToken();
+setConfig();
+
+const token = await getToken();
 if (!token) {
   await setHref("/login");
   throw new Error();
@@ -32,7 +35,7 @@ form.form.addEventListener("submit", async (event) => {
     const displayName = values.get("/displayName") ?? "";
     const preferResidentKey = values.get("/residentKey") ?? "unchecked";
 
-    const currentToken = getToken();
+    const currentToken = await getToken();
     if (!currentToken) {
       await setHref("/login");
       throw new Error();

@@ -1,10 +1,12 @@
 import { Form } from "../lib/form.ts";
-import { FetchBuilder, TOKEN_KEY } from "../lib/fetch.ts";
-import { API_KEY, API_URL } from "../scripts/config.ts";
+import { FetchBuilder } from "../lib/fetch.ts";
+import { API_KEY, API_URL, setConfig } from "../scripts/config.ts";
 import { setHref } from "../lib/redirect.ts";
 import { getToken } from "../scripts/token.ts";
 
-const token = getToken();
+setConfig();
+
+const token = await getToken();
 if (token) {
   switch (token.typ) {
     case "common":
@@ -31,8 +33,9 @@ form.form.addEventListener("submit", async (event) => {
     .setHeaders([API_KEY])
     .setBody({ username, displayName })
     .fetch<unknown>();
-
-  if (response.status === "ok" && localStorage.getItem(TOKEN_KEY)) {
+  const token = await getToken();
+  console.log(token);
+  if (response.status === "ok" && token) {
     const params = new URLSearchParams(document.location.search);
     const redirect = params.get("redirect");
     const nextPage = redirect ? `/add-passkey?redirect=${redirect}` : `/add-passkey`;

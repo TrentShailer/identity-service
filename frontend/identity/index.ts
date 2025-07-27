@@ -1,13 +1,15 @@
-import { FetchBuilder, TOKEN_KEY } from "../lib/fetch.ts";
+import { deleteToken, FetchBuilder } from "../lib/fetch.ts";
 import { setHref } from "../lib/redirect.ts";
-import { API_KEY, API_URL } from "../scripts/config.ts";
+import { API_KEY, API_URL, setConfig } from "../scripts/config.ts";
 import { requestConsentToken } from "../scripts/webauthn.ts";
 import { Identity, PublicKey } from "../types.ts";
 import { formatOptions, parseUtcToLocalDateTime } from "../lib/temporal.ts";
 import { FormError } from "../lib/form.ts";
 import { getToken, logout } from "../scripts/token.ts";
 
-const token = getToken();
+setConfig();
+
+const token = await getToken();
 if (!token) {
   await setHref("/login");
   throw new Error();
@@ -17,7 +19,7 @@ if (token.typ === "provisioning") {
 }
 
 document.getElementById("logout")!.addEventListener("mouseup", async () => {
-  localStorage.removeItem(TOKEN_KEY);
+  await deleteToken();
   await logout(false);
 });
 
@@ -53,7 +55,7 @@ document.getElementById("deleteIdentity")!.addEventListener("mouseup", async () 
     return;
   }
 
-  localStorage.removeItem(TOKEN_KEY);
+  await deleteToken();
   await logout(false);
 });
 
@@ -144,7 +146,7 @@ function addPasskey(passkey: PublicKey, parent: HTMLElement) {
 }
 
 async function deletePasskey(id: string) {
-  const currentToken = getToken();
+  const currentToken = await getToken();
   if (!currentToken) {
     await logout(false);
     return;

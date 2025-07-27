@@ -1,9 +1,12 @@
 import { Form } from "../lib/form.ts";
 import { setHref } from "../lib/redirect.ts";
+import { setConfig } from "../scripts/config.ts";
 import { getToken } from "../scripts/token.ts";
 import { requestCommonToken } from "../scripts/webauthn.ts";
 
-const token = getToken();
+setConfig();
+
+const token = await getToken();
 if (token) {
   switch (token.typ) {
     case "common":
