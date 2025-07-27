@@ -35,6 +35,7 @@
         <section>
           <h2>Passkeys</h2>
           <htmplate:form-alert form="/passkeys" style="margin-bottom: 1rem" />
+          <htmplate:form-alert form="/deletePasskey" style="margin-bottom: 1rem" />
           <div id="passkeys">
             <htmplate:icon-button
               href="/add-passkey"
@@ -43,6 +44,15 @@
             />
           </div>
         </section>
+        <br>
+        <htmplate:icon-button
+          id="logout"
+          icon="log-out"
+          text="Logout"
+          class="peach"
+          style="width: 100%"
+        />
+        <br>
         <br>
         <htmplate:form-alert form="/deleteIdentity" style="margin-bottom: 1rem" />
         <htmplate:icon-button

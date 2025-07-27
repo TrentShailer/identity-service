@@ -1,4 +1,4 @@
-<!-- htmplate v0.11.3 -->
+<!-- htmplate v0.13.1 -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -90,6 +90,20 @@
             </svg>
             <div id="/passkeys/error/content"></div>
           </aside>
+          <aside
+            class="alert error collapse"
+            aria-hidden="true"
+            id="/deletePasskey/error"
+            role="alert"
+            style="margin-bottom: 1rem"
+          >
+            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+              <path
+                d="M256,48C141.31,48,48,141.31,48,256s93.31,208,208,208,208-93.31,208-208S370.69,48,256,48Zm0,319.91a20,20,0,1,1,20-20A20,20,0,0,1,256,367.91Zm21.72-201.15-5.74,122a16,16,0,0,1-32,0l-5.74-121.94v-.05a21.74,21.74,0,1,1,43.44,0Z"
+              />
+            </svg>
+            <div id="/deletePasskey/error/content"></div>
+          </aside>
           <div id="passkeys">
             <a class="button" href="/add-passkey"><svg
                 aria-hidden="true"
@@ -113,6 +127,18 @@
               </svg> Add New Passkey</a>
           </div>
         </section>
+        <br>
+        <button class="peach icon-button" id="logout" style="width: 100%">
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+            <path
+              d="M160,256a16,16,0,0,1,16-16H320V136c0-32-33.79-56-64-56H104a56.06,56.06,0,0,0-56,56V376a56.06,56.06,0,0,0,56,56H264a56.06,56.06,0,0,0,56-56V272H176A16,16,0,0,1,160,256Z"
+            />
+            <path
+              d="M459.31,244.69l-80-80a16,16,0,0,0-22.62,22.62L409.37,240H320v32h89.37l-52.68,52.69a16,16,0,1,0,22.62,22.62l80-80a16,16,0,0,0,0-22.62Z"
+            />
+          </svg> Logout
+        </button>
+        <br>
         <br>
         <aside
           class="alert error collapse"

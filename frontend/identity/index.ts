@@ -1,13 +1,13 @@
-import { FetchBuilder, logout, TOKEN_KEY } from "../lib/fetch.ts";
+import { FetchBuilder, TOKEN_KEY } from "../lib/fetch.ts";
 import { setHref } from "../lib/redirect.ts";
-import { API_KEY, API_URL, LOGOUT_CONFIG } from "../scripts/config.ts";
-import { getToken } from "../scripts/pageRequirements.ts";
+import { API_KEY, API_URL } from "../scripts/config.ts";
+import { requestConsentToken } from "../scripts/webauthn.ts";
 import { Identity, PublicKey } from "../types.ts";
 import { formatOptions, parseUtcToLocalDateTime } from "../lib/temporal.ts";
-import { getConsent } from "../scripts/consent.ts";
 import { FormError } from "../lib/form.ts";
+import { getToken, logout } from "../scripts/token.ts";
 
-const token = await getToken();
+const token = getToken();
 if (!token) {
   await setHref("/login");
   throw new Error();
@@ -16,73 +16,64 @@ if (token.typ === "provisioning") {
   await setHref("/add-passkey");
 }
 
-const deleteIdentityAlert = new FormError("/deleteIdentity");
+document.getElementById("logout")!.addEventListener("mouseup", async () => {
+  localStorage.removeItem(TOKEN_KEY);
+  await logout(false);
+});
+
+const deleteIdentityAlert = new FormError("/deleteIdentity", "delete your identity");
 document.getElementById("deleteIdentity")!.addEventListener("mouseup", async () => {
-  const consent = await getConsent(`DELETE /identities/${token.sub}`);
-  if (consent === "cancelled") {
-    deleteIdentityAlert.setError(
-      "Could not delete your identity because consent prompt was cancelled.",
-    );
+  const consent = await requestConsentToken(token, `DELETE /identities/${token.sub}`);
+  if (consent.status === "cancelled") {
+    deleteIdentityAlert.addError("the consent prompt was cancelled");
     return;
   }
-  else if (consent === "unauthenticated") {
-    await logout(LOGOUT_CONFIG, false);
+  else if (consent.status === "unauthenticated") {
+    await logout(false);
     return;
   }
-  else if (consent === "unexpectedError") {
-    deleteIdentityAlert.unexpectedResponse("delete your identity");
+  else if (consent.status !== "ok") {
+    deleteIdentityAlert.panic();
     return;
   }
 
   const response = await new FetchBuilder("DELETE", API_URL + `/identities/${token.sub}`)
-    .setHeaders([API_KEY, ["Authorization", consent.consentToken]])
-    .setLogout(LOGOUT_CONFIG, false)
+    .setHeaders([API_KEY, ["Authorization", consent.data]])
     .fetch();
-  if (response.status === "clientError") {
-    deleteIdentityAlert.setError("Could not your identity");
-    if (response.problems.length != 0) {
-      for (const problem of response.problems) {
-        if (problem.detail) {
-          passkeyAlert.addError(problem.detail);
-        }
+  if (response.status === "badRequest" && response.problems.length != 0) {
+    for (const problem of response.problems) {
+      if (problem.detail) {
+        passkeyAlert.addError(problem.detail);
       }
     }
     return;
   }
   else if (response.status !== "ok") {
-    deleteIdentityAlert.unexpectedResponse("delete your identity");
+    deleteIdentityAlert.panic();
     return;
   }
 
   localStorage.removeItem(TOKEN_KEY);
-  await logout(LOGOUT_CONFIG, false);
+  await logout(false);
 });
 
 const identityResponse = await new FetchBuilder("GET", API_URL + `/identities/${token.sub}`)
   .setHeaders([API_KEY])
-  .setLogout(LOGOUT_CONFIG, false)
   .fetch<Identity>();
-const identityAlert = new FormError("/identity");
-switch (identityResponse.status) {
-  case "clientError":
-  case "serverError": {
-    identityAlert.unexpectedResponse("fetch identity details");
-    break;
-  }
-  case "unauthorized":
-  case "notFound": {
-    await logout(LOGOUT_CONFIG, false);
-    break;
-  }
-  case "ok": {
-    const created = parseUtcToLocalDateTime(identityResponse.body.created)
-      .toPlainDate()
-      .toLocaleString(formatOptions().locale, { dateStyle: "long" });
-    document.getElementById("username")!.textContent = identityResponse.body.username;
-    document.getElementById("displayName")!.textContent = identityResponse.body.displayName;
-    document.getElementById("created")!.textContent = created;
-    break;
-  }
+const identityAlert = new FormError("/identity", "fetch your identity details");
+if (identityResponse.status === "ok") {
+  const created = parseUtcToLocalDateTime(identityResponse.body.created)
+    .toPlainDate()
+    .toLocaleString(formatOptions().locale, { dateStyle: "long" });
+  document.getElementById("username")!.textContent = identityResponse.body.username;
+  document.getElementById("displayName")!.textContent = identityResponse.body.displayName;
+  document.getElementById("created")!.textContent = created;
+}
+else if (identityResponse.status === "unauthenticated") {
+  await logout(false);
+}
+else {
+  identityAlert.panic();
 }
 
 type PublicKeysResponse = {
@@ -91,28 +82,23 @@ type PublicKeysResponse = {
 const passkeyResponse = await new FetchBuilder(
   "GET",
   API_URL + `/public-keys?identityId=${token.sub}`,
-).setLogout(LOGOUT_CONFIG, false)
+)
   .setHeaders([API_KEY])
   .fetch<PublicKeysResponse>();
-const passkeyAlert = new FormError("/passkeys");
-switch (passkeyResponse.status) {
-  case "clientError":
-  case "serverError": {
-    passkeyAlert.unexpectedResponse("fetch the passkey details");
-    break;
+const passkeyAlert = new FormError("/passkeys", "fetch your passkey details");
+const deletePasskeyAlert = new FormError("/deletePasskey", "delete your passkey");
+
+if (passkeyResponse.status === "ok") {
+  const parent = document.getElementById("passkeys")!;
+  for (const passkey of passkeyResponse.body.publicKeys) {
+    addPasskey(passkey, parent);
   }
-  case "unauthorized":
-  case "notFound": {
-    await logout(LOGOUT_CONFIG, false);
-    break;
-  }
-  case "ok": {
-    const parent = document.getElementById("passkeys")!;
-    for (const passkey of passkeyResponse.body.publicKeys) {
-      addPasskey(passkey, parent);
-    }
-    break;
-  }
+}
+else if (passkeyResponse.status === "unauthenticated") {
+  await logout(false);
+}
+else {
+  passkeyAlert.panic();
 }
 
 function addPasskey(passkey: PublicKey, parent: HTMLElement) {
@@ -158,38 +144,39 @@ function addPasskey(passkey: PublicKey, parent: HTMLElement) {
 }
 
 async function deletePasskey(id: string) {
-  const consent = await getConsent(`DELETE /public-keys/${id}`);
-  if (consent === "cancelled") {
-    passkeyAlert.setError("Could not delete passkey because consent prompt was cancelled.");
+  const currentToken = getToken();
+  if (!currentToken) {
+    await logout(false);
     return;
   }
-  else if (consent === "unauthenticated") {
-    await logout(LOGOUT_CONFIG, false);
+
+  const consent = await requestConsentToken(currentToken, `DELETE /public-keys/${id}`);
+  if (consent.status === "cancelled") {
+    deletePasskeyAlert.addError("the prompt was cancelled");
     return;
   }
-  else if (consent === "unexpectedError") {
-    passkeyAlert.unexpectedResponse("delete the passkey");
+  else if (consent.status === "unauthenticated") {
+    await logout(false);
+    return;
+  }
+  else if (consent.status !== "ok") {
+    deletePasskeyAlert.panic();
     return;
   }
 
   const response = await new FetchBuilder("DELETE", API_URL + `/public-keys/${id}`)
-    .setHeaders([API_KEY, ["Authorization", consent.consentToken]])
-    .setLogout(LOGOUT_CONFIG, false)
+    .setHeaders([API_KEY, ["Authorization", consent.data]])
     .fetch();
-  if (response.status === "clientError") {
-    passkeyAlert.setError("Could not delete passkey");
-    if (response.problems.length != 0) {
-      for (const problem of response.problems) {
-        if (problem.detail) {
-          passkeyAlert.addError(problem.detail);
-        }
+  if (response.status === "badRequest" && response.problems.length != 0) {
+    for (const problem of response.problems) {
+      if (problem.detail) {
+        deletePasskeyAlert.addError(problem.detail);
       }
     }
-
     return;
   }
   else if (response.status !== "ok") {
-    passkeyAlert.unexpectedResponse("delete the passkey");
+    deletePasskeyAlert.panic();
     return;
   }
 

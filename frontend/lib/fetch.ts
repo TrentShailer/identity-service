@@ -1,23 +1,14 @@
-import { setHref } from "./redirect.ts";
-
 export type Problem = {
-  pointer: string | null;
-  detail: string | null;
+  pointer: string;
+  detail: string;
 };
 
 export type ServerResponse<T> =
   | { status: "ok"; body: T }
-  | { status: "clientError"; problems: Problem[] }
-  | { status: "serverError" }
-  | { status: "unauthorized" }
-  | { status: "notFound" }
+  | { status: "badRequest"; problems: Problem[] }
+  | { status: "unauthenticated" }
+  | { status: "error" }
   | never;
-
-export type LogoutConfig = {
-  deleteTokenEndpoint: string;
-  loginHref: string;
-  additionalHeaders: Header[];
-};
 
 export type Header = [string, string];
 
@@ -28,8 +19,6 @@ export class FetchBuilder {
   #url: string;
   #additionalHeaders: Header[] | null = null;
   #body: object | null = null;
-  #logoutConfig: LogoutConfig | null = null;
-  #logoutShouldReturn: boolean = false;
 
   constructor(method: "GET" | "POST" | "PUT" | "DELETE", url: string) {
     this.#method = method;
@@ -46,20 +35,12 @@ export class FetchBuilder {
     return this;
   }
 
-  setLogout(logoutConfig: LogoutConfig | null, shouldReturn: boolean): FetchBuilder {
-    this.#logoutConfig = logoutConfig;
-    this.#logoutShouldReturn = shouldReturn;
-    return this;
-  }
-
   async fetch<T>(): Promise<ServerResponse<T>> {
     return await fetch(
       this.#method,
       this.#url,
       this.#additionalHeaders,
       this.#body,
-      this.#logoutConfig,
-      this.#logoutShouldReturn,
     );
   }
 }
@@ -69,8 +50,6 @@ export async function fetch<T>(
   url: string,
   additionalHeaders: Header[] | null,
   body: object | null,
-  logoutConfig: LogoutConfig | null,
-  logoutShouldReturn: boolean,
 ): Promise<ServerResponse<T>> {
   const headers = new Headers();
 
@@ -118,48 +97,25 @@ export async function fetch<T>(
       status: "ok",
       body,
     };
-  } else if (response.status === 401) {
-    if (logoutConfig) {
-      await logout(
-        logoutConfig,
-        logoutShouldReturn,
-      );
+  }
+
+  switch (response.status) {
+    case 400: {
+      const body = await response.json().catch((ex) => {
+        console.warn(ex);
+        return { problems: [] };
+      });
+
+      return {
+        status: "badRequest",
+        problems: body.problems ?? [],
+      };
     }
-
-    return { status: "unauthorized" };
-  } else if (response.status === 404) {
-    return { status: "notFound" };
-  } else if (response.status >= 400 && response.status < 500) {
-    const body = await response.json().catch((ex) => {
-      console.warn(ex);
-      return { problems: [] };
-    });
-
-    return {
-      status: "clientError",
-      problems: body.problems ?? [],
-    };
-  } else {
-    return { status: "serverError" };
-  }
-}
-
-export async function logout(
-  config: LogoutConfig,
-  shouldReturn: boolean,
-): Promise<never> {
-  const token = localStorage.getItem(TOKEN_KEY);
-  await new FetchBuilder("DELETE", config.deleteTokenEndpoint).setHeaders(config.additionalHeaders)
-    .fetch();
-  localStorage.removeItem(TOKEN_KEY);
-
-  if (token) {
-    alert("Your session has expired");
+    case 401:
+    case 403: {
+      return { status: "unauthenticated" };
+    }
   }
 
-  const href = shouldReturn
-    ? `${config.loginHref}?redirect=${encodeURI(location.href)}`
-    : config.loginHref;
-
-  return await setHref(href);
+  return { status: "error" };
 }

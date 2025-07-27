@@ -2,9 +2,9 @@ import { Form } from "../lib/form.ts";
 import { FetchBuilder, TOKEN_KEY } from "../lib/fetch.ts";
 import { API_KEY, API_URL } from "../scripts/config.ts";
 import { setHref } from "../lib/redirect.ts";
-import { getToken } from "../scripts/pageRequirements.ts";
+import { getToken } from "../scripts/token.ts";
 
-const token = await getToken();
+const token = getToken();
 if (token) {
   switch (token.typ) {
     case "common":
@@ -16,11 +16,11 @@ if (token) {
   }
 }
 
-const form = new Form("/register", ["/username", "/displayName"]);
+const form = new Form("/register", ["/username", "/displayName"], "register");
 form.form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
-  form.lock();
+  form.setLock(true);
   form.clearErrors();
 
   const values = form.getValues();
@@ -38,12 +38,12 @@ form.form.addEventListener("submit", async (event) => {
     const nextPage = redirect ? `/add-passkey?redirect=${redirect}` : `/add-passkey`;
     await setHref(nextPage);
   }
-  else if (response.status === "clientError") {
+  else if (response.status === "badRequest") {
     form.setInputErrors(response.problems);
   }
   else {
-    form.formError.unexpectedResponse("register");
+    form.formError.panic();
   }
 
-  form.unlock();
+  form.setLock(false);
 });

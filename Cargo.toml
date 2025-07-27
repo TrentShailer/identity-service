@@ -41,7 +41,7 @@ schemars = { version = "1" }
 ts-sql-helper-lib = { version = "0.7", features = ["async", "derive"] }
 # ts-api-helper = { version = "0.3", features = ["vendor-openssl"] }
 ts-api-helper = { path = "../api-helper" }
-ts-rust-helper = { version = "0.9", features = ["command", "config", "log"] }
+ts-rust-helper = { version = "0.10", features = ["command", "config", "log"] }
 
 base64ct = { version = "1.8", features = ["alloc"] }
 

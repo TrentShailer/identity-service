@@ -25,7 +25,7 @@
 }
 ```
 
-- 422 Unprocessable Content **MUST** be used for malformed requests such as invalid base-64 encoded
+- 422 Unprocessable Entity **MUST** be used for malformed requests such as invalid base-64 encoded
   value. The server **MUST NOT** provide further details or a response body.
 
 - 409 Conflict **SHOULD NOT** be used for POST requests, instead 400 Bad Request **SHOULD** be
@@ -44,6 +44,10 @@
 
 - 500 Internal Server Error **MUST** be returned for any server-side errors where there is no direct
   problem with the request. The server **MUST NOT** provide further details or a response body.
+
+- The server **SHOULD** prefer to panic if an error would only be the result of a programming error.
+  Such as, being unable to convert a row into a type, as the contents of the row and type are both
+  controlled by the developer.
 
 ## Authorization
 

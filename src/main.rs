@@ -3,10 +3,7 @@
 use core::{str::FromStr, time::Duration};
 use std::sync::Arc;
 
-use axum::{
-    Router,
-    routing::{delete, get, post},
-};
+use axum::Router;
 use http::{HeaderName, Uri};
 use tokio::task;
 use tokio_postgres::{Client, GenericClient};
@@ -16,7 +13,7 @@ use ts_api_helper::cors_layer;
 use ts_rust_helper::{
     command::{Cli, Command},
     config::try_load_config,
-    error::{ErrorLogger, IntoErrorReport, ReportProgramExit},
+    error::{ErrorLogger, ReportProgramExit},
 };
 use ts_sql_helper_lib::perform_migrations_async;
 
@@ -42,20 +39,14 @@ async fn main() -> ReportProgramExit {
     let filter = tracing_subscriber::filter::LevelFilter::from_level(level);
 
     tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::fmt::layer()
-                .with_file(true)
-                .with_line_number(true),
-        )
+        .with(tracing_subscriber::fmt::layer())
         .with(filter)
         .init();
 
     if let Some(subcommand) = cli.subcommand {
         match subcommand {
             Command::Config(config_subcommand) => {
-                config_subcommand
-                    .execute::<Config>()
-                    .into_report("execute config command")?;
+                config_subcommand.execute::<Config>()?;
 
                 eprintln!(
                     "Performed `config {}`",
@@ -67,50 +58,24 @@ async fn main() -> ReportProgramExit {
         }
     }
 
-    let config: Config = try_load_config().into_report("load config")?;
+    let config: Config = try_load_config()?;
 
     // Setup database pool
-    let pool = config
-        .database_pool()
-        .await
-        .into_report("setup database connection pool")?;
+    let pool = config.database_pool().await?;
 
     // Migrate database
     {
-        let connection = pool
-            .get()
-            .await
-            .into_report("get database pool connection")?;
-
-        perform_migrations_async(connection.client(), None)
-            .await
-            .into_report("execute migrations")?;
+        let connection = pool.get().await?;
+        perform_migrations_async(connection.client(), None).await?;
     }
 
     let state = {
-        let jwks_file = config
-            .token_issuing_config
-            .jwks()
-            .into_report("load JWKS")?;
-
-        let signing_jwk = Arc::new(
-            config
-                .token_issuing_config
-                .signing_jwk()
-                .into_report("load signing key")?,
-        );
-
+        let jwks_file = config.token_issuing_config.jwks()?;
+        let signing_jwk = Arc::new(config.token_issuing_config.signing_jwk()?);
         let jwks_cache = config.token_validating_config.jwks_cache();
-
         let api_key_config = config.api_key_validation_config.clone();
-
-        let http_client = config
-            .http_client_config
-            .http_client()
-            .into_report("create HTTP client")?;
-
+        let http_client = config.http_client_config.http_client()?;
         let revocation_endpoint = config.token_validating_config.revocation_endpoint;
-
         let relying_party = config.relying_party;
 
         ApiState {
@@ -148,39 +113,31 @@ async fn main() -> ReportProgramExit {
         .allowed_origins
         .iter()
         .map(Uri::try_from)
-        .collect::<Result<_, _>>()
-        .into_report("convert allowed origin to URI")?;
+        .collect::<Result<_, _>>()?;
 
     let cors = cors_layer(
         origins,
-        &[
-            HeaderName::from_str(&config.api_key_validation_config.header)
-                .into_report("convert API Key header into a HeaderName")?,
-        ],
+        &[HeaderName::from_str(
+            &config.api_key_validation_config.header,
+        )?],
         &[],
     );
 
     #[rustfmt::skip]
     let app = Router::new()
-        .route("/.well-known/jwks.json", get(routes::get_well_known_jwks))
-        .route("/revoked-tokens/{tokenId}", get(routes::get_revoked_token))
-        .route("/tokens/current", delete(routes::delete_current_token).get(routes::get_current_token))
-        .route("/tokens", post(routes::post_tokens))
-        .route("/identities", post(routes::post_identities))
-        .route("/identities/{identityId}", get(routes::get_identity).delete(routes::delete_identity))
-        .route("/challenges", post(routes::post_challenges))
-        .route("/credential-creation-options", get(routes::get_credential_creation_options))
-        .route("/credential-request-options", get(routes::get_credential_request_options))
-        .route("/allowed-credentials/{username}", get(routes::get_allowed_credentials))
-        .route("/public-keys", post(routes::post_public_keys).get(routes::get_public_keys))
-        .route("/public-keys/{publicKeyId}", delete(routes::delete_public_key))
-        .layer(cors)
-        .with_state(state);
+        .merge(routes::challenges::router(state.clone()))
+        .merge(routes::well_known::router(state.clone()))
+        .merge(routes::existing_credentials::router(state.clone()))
+        .merge(routes::identities::router(state.clone()))
+        .merge(routes::revoked_tokens::router(state.clone()))
+        .merge(routes::tokens::router(state.clone()))
+        .merge(routes::public_keys::router(state.clone()))
+        .layer(cors);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8081").await.unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
 
-    axum::serve(listener, app).await.into_report("axum serve")?;
+    axum::serve(listener, app).await?;
 
     Ok(())
 }

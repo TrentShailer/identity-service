@@ -14,7 +14,7 @@
   },
   "servers": [
     {
-      "url": "https://api.trentshailer.com/v1/identities"
+      "url": "https://identity.trentshailer.com/v1"
     }
   ],
   "paths": {

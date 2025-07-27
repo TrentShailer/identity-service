@@ -4,6 +4,7 @@ export type TokenDetails = {
   typ: "common" | "consent" | "provisioning";
   exp: string;
   act: string | null;
+  tid: string;
 };
 
 export type Challenge = {
