@@ -55,6 +55,17 @@ query! {
             last_used;"#
 }
 
+query! {
+    name: MakeIdentityPermanant,
+    query: r#"
+        UPDATE
+            identities
+        SET
+            (expires = NULL)
+        WHERE
+            id = $1::BYTEA"#
+}
+
 pub async fn post_handler(
     _: ApiKey,
     Token(token): Token,
@@ -138,6 +149,18 @@ pub async fn post_handler(
             .internal_server_error()?;
 
         header_map.insert(AUTHORIZATION, value);
+
+        // Flag identity is non-expiring
+        let database = state.pool.get().await.internal_server_error()?;
+        database
+            .execute(
+                MakeIdentityPermanant::QUERY,
+                MakeIdentityPermanant::params(&identity_id)
+                    .as_array()
+                    .as_slice(),
+            )
+            .await
+            .internal_server_error()?;
     }
 
     Ok((StatusCode::CREATED, header_map, Json(public_key)))
