@@ -61,7 +61,7 @@ query! {
         UPDATE
             identities
         SET
-            (expires = NULL)
+            expires = NULL
         WHERE
             id = $1::BYTEA"#
 }
